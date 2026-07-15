@@ -426,27 +426,36 @@ export function HeroScene() {
       ctx.fillStyle = sheenG; ctx.globalAlpha = 0.5; ctx.fill(); ctx.globalAlpha = 1;
       ctx.restore();
 
-      // EKG inside heart
+      // EKG inside heart — seamless scrolling wave
       ctx.save();
       heartPath(cx, cy, hs * 0.97);
       ctx.clip();
-      const ekgProgress = (t * 18) % (W * 0.9);
-      const ekgX0 = cx - heartR * 1.1;
-      const ekgW2 = heartR * 2.2;
+
+      const waveW = heartR * 1.55;                 // one full beat cycle width
+      const ekgScroll = (t * 28) % waveW;          // smooth scroll offset
+
+      // Blue→Green gradient matching website palette
+      const ekgGrad = ctx.createLinearGradient(cx - heartR, cy, cx + heartR, cy);
+      ekgGrad.addColorStop(0,   "#1D4ED8");
+      ekgGrad.addColorStop(0.5, "#2563EB");
+      ekgGrad.addColorStop(1,   "#16A34A");
+
       ctx.beginPath();
-      ekgPts.forEach((v, i) => {
-        const ex = ekgX0 + (i / (ekgPts.length - 1)) * ekgW2 + ekgProgress * 0.5 - heartR;
-        const ey = cy + v * heartR * 0.55;
-        i === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey);
-      });
-      ekgPts.forEach((v, i) => {
-        const ex = ekgX0 + (i / (ekgPts.length - 1)) * ekgW2 + ekgProgress * 0.5;
-        const ey = cy + v * heartR * 0.55;
-        ctx.lineTo(ex, ey);
-      });
-      ctx.strokeStyle = "#00ff44";
-      ctx.lineWidth = scale * 0.006;
-      glow("#00ff44", 14); ctx.stroke(); noGlow();
+      let ekgStarted = false;
+      for (let tile = -1; tile <= 3; tile++) {
+        ekgPts.forEach((v, i) => {
+          const ex = cx - heartR + tile * waveW - ekgScroll
+                     + (i / (ekgPts.length - 1)) * waveW;
+          const ey = cy + v * heartR * 0.5;
+          if (!ekgStarted) { ctx.moveTo(ex, ey); ekgStarted = true; }
+          else ctx.lineTo(ex, ey);
+        });
+      }
+      ctx.strokeStyle = ekgGrad;
+      ctx.lineWidth = scale * 0.007;
+      ctx.lineJoin = "round";
+      ctx.lineCap  = "round";
+      glow("#4f9eff", 16); ctx.stroke(); noGlow();
       ctx.restore();
 
       // ── Tree ─────────────────────────────────────────────────────────────────

@@ -18,8 +18,10 @@ export function Logo({ className = "", imageClassName = "h-10", showText = true 
         />
       </div>
       {showText && (
-        <span className="font-bold text-xl tracking-tight text-slate-900">
-          نبض <span className="text-primary font-light">| Pulse</span>
+        <span className="font-bold text-xl tracking-tight">
+          <span className="bg-gradient-to-l from-primary to-secondary bg-clip-text text-transparent">نبض</span>
+          <span className="text-slate-400 font-light mx-1">|</span>
+          <span className="text-primary font-semibold">Pulse</span>
         </span>
       )}
     </div>

@@ -186,50 +186,68 @@ export function HeroScene() {
       glow("#ffd700", 8); ctx.stroke(); noGlow();
 
       if (icon === "piggybank") {
-        // Draw a piggy bank shape
+        // Classic ceramic حصالة — round jar, no animal features
         ctx.save();
         ctx.translate(cx2, cy2);
-        const s = r * 0.55;
-        // Body
-        const bodyG = ctx.createRadialGradient(-s * 0.2, -s * 0.1, 0, 0, 0, s * 1.1);
-        bodyG.addColorStop(0, "#ffc0cb"); bodyG.addColorStop(1, "#e07888");
-        ctx.beginPath(); ctx.ellipse(0, s * 0.1, s, s * 0.85, 0, 0, Math.PI * 2);
+        const s = r * 0.6;
+
+        // Body — plump oval
+        const bodyG = ctx.createRadialGradient(-s * 0.28, -s * 0.22, 0, 0, s * 0.08, s * 1.15);
+        bodyG.addColorStop(0, "#ffd4e8");
+        bodyG.addColorStop(0.45, "#f48fb1");
+        bodyG.addColorStop(1, "#c2185b");
+        ctx.beginPath();
+        ctx.ellipse(0, s * 0.08, s * 0.92, s * 0.82, 0, 0, Math.PI * 2);
         ctx.fillStyle = bodyG; ctx.fill();
-        // Ear (top left)
-        ctx.beginPath(); ctx.ellipse(-s * 0.55, -s * 0.7, s * 0.25, s * 0.3, -0.4, 0, Math.PI * 2);
-        ctx.fillStyle = "#e07888"; ctx.fill();
-        ctx.beginPath(); ctx.ellipse(-s * 0.55, -s * 0.7, s * 0.14, s * 0.18, -0.4, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffaabb"; ctx.fill();
-        // Snout
-        ctx.beginPath(); ctx.ellipse(s * 0.55, s * 0.15, s * 0.32, s * 0.24, 0, 0, Math.PI * 2);
-        ctx.fillStyle = "#e07888"; ctx.fill();
-        ctx.beginPath(); ctx.arc(s * 0.43, s * 0.18, s * 0.07, 0, Math.PI * 2);
-        ctx.fillStyle = "#b05060"; ctx.fill();
-        ctx.beginPath(); ctx.arc(s * 0.63, s * 0.18, s * 0.07, 0, Math.PI * 2);
-        ctx.fillStyle = "#b05060"; ctx.fill();
-        // Eye
-        ctx.beginPath(); ctx.arc(s * 0.18, -s * 0.25, s * 0.1, 0, Math.PI * 2);
-        ctx.fillStyle = "#222"; ctx.fill();
-        ctx.beginPath(); ctx.arc(s * 0.22, -s * 0.28, s * 0.04, 0, Math.PI * 2);
-        ctx.fillStyle = "#fff"; ctx.fill();
-        // Coin slot on top
-        ctx.fillStyle = "#b05060"; ctx.fillRect(-s * 0.2, -s * 0.92, s * 0.4, s * 0.1);
-        // Legs
-        ctx.fillStyle = "#e07888";
-        [-s * 0.45, -s * 0.15, s * 0.15, s * 0.45].forEach(lx => {
-          ctx.beginPath(); ctx.ellipse(lx, s * 0.82, s * 0.13, s * 0.22, 0, 0, Math.PI * 2);
+
+        // Body outline glow
+        ctx.beginPath();
+        ctx.ellipse(0, s * 0.08, s * 0.92, s * 0.82, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = "#ffd700bb"; ctx.lineWidth = 1.8;
+        glow("#ffd700", 7); ctx.stroke(); noGlow();
+
+        // Glass shine (top-left highlight)
+        const shineG = ctx.createRadialGradient(-s * 0.32, -s * 0.45, 0, -s * 0.2, -s * 0.3, s * 0.55);
+        shineG.addColorStop(0, "rgba(255,255,255,0.55)");
+        shineG.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.beginPath();
+        ctx.ellipse(-s * 0.22, -s * 0.3, s * 0.38, s * 0.26, -0.5, 0, Math.PI * 2);
+        ctx.fillStyle = shineG; ctx.fill();
+
+        // Coin slot — dark rounded slit on top
+        ctx.save();
+        ctx.beginPath();
+        (ctx as any).roundRect(-s * 0.22, -s * 0.88, s * 0.44, s * 0.13, s * 0.07);
+        ctx.fillStyle = "#7b0033"; ctx.fill();
+        ctx.strokeStyle = "#ffd700aa"; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.restore();
+
+        // Four stubby legs at bottom
+        ctx.fillStyle = "#c2185b";
+        [-s * 0.48, -s * 0.16, s * 0.16, s * 0.48].forEach(lx => {
+          ctx.beginPath();
+          ctx.ellipse(lx, s * 0.82, s * 0.14, s * 0.2, 0, 0, Math.PI * 2);
           ctx.fill();
+          // Leg shine
+          ctx.beginPath();
+          ctx.ellipse(lx - s * 0.03, s * 0.76, s * 0.06, s * 0.06, 0, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fill();
+          ctx.fillStyle = "#c2185b";
         });
-        // Gold coin (floating above slot)
-        ctx.beginPath(); ctx.arc(-s * 0.05, -s * 1.25, s * 0.22, 0, Math.PI * 2);
-        const cg2 = ctx.createRadialGradient(-s * 0.1, -s * 1.3, 0, -s * 0.05, -s * 1.25, s * 0.22);
+
+        // Gold coin dropping into slot
+        const coinBob2 = Math.sin(t * 2.2 + cx2) * s * 0.08;
+        ctx.beginPath();
+        ctx.ellipse(0, -s * 1.18 + coinBob2, s * 0.22, s * 0.22, 0, 0, Math.PI * 2);
+        const cg2 = ctx.createRadialGradient(-s * 0.07, -s * 1.22 + coinBob2, 0, 0, -s * 1.18 + coinBob2, s * 0.22);
         cg2.addColorStop(0, "#fffacc"); cg2.addColorStop(0.5, "#ffd700"); cg2.addColorStop(1, "#c87000");
         ctx.fillStyle = cg2; ctx.fill();
         ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 1.5;
-        glow("#ffd700", 5); ctx.stroke(); noGlow();
-        ctx.font = `bold ${s * 0.28}px Arial`;
-        ctx.fillStyle = "#8B6000"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("$", -s * 0.05, -s * 1.24);
+        glow("#ffd700", 6); ctx.stroke(); noGlow();
+        ctx.font = `bold ${s * 0.26}px Arial`;
+        ctx.fillStyle = "#7B4F00";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("$", 0, -s * 1.18 + coinBob2 + 1);
         ctx.textBaseline = "alphabetic";
         ctx.restore();
       } else {
@@ -467,7 +485,17 @@ export function HeroScene() {
       drawPanel(W - panelW - W * 0.02, H * 0.52 + bob, panelW, panelH, "EXPENSES", "$2,340", "#ff8844", "pie");
 
       // ── Coins ─────────────────────────────────────────────────────────────────
+      // Panel zones to avoid (left strip + right strip)
+      const pZoneW = (panelW + W * 0.04) / W;   // left/right panel x fraction
+      const pZoneH = (panelH + 20) / H;           // panel height fraction
+      const savingsY = (H * 0.52) / H;            // SAVINGS panel centre y fraction
+
       coins.forEach((coin) => {
+        // Skip coins that land on top of the SAVINGS panel
+        const inLeftStrip = coin.x < pZoneW;
+        const inSavingsRow = coin.y > savingsY - pZoneH * 0.65 && coin.y < savingsY + pZoneH * 0.65;
+        if (inLeftStrip && inSavingsRow) return;
+
         const bobY = coin.y * H + Math.sin(t * 1.1 + coin.phase) * 8;
         const tilt = Math.sin(t * 0.8 + coin.phase) * 0.6;
         const rx = coin.r;

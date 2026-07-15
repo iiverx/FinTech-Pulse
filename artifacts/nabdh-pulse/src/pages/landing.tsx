@@ -35,7 +35,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h1 className="text-5xl md:text-6xl font-black text-slate-900 mb-6 leading-tight">
-                نبضك المالي في <span className="bg-gradient-to-l from-primary to-secondary bg-clip-text text-transparent">رقم واحد</span>
+                وعيك المالي ينبض <span className="bg-gradient-to-l from-primary to-secondary bg-clip-text text-transparent">برقم</span>
               </h1>
               <p className="text-xl text-slate-600 mb-8 leading-relaxed">
                 أول مؤشر ذكي يحوّل بياناتك البنكية إلى درجة يومية من 0 إلى 100، يتنبأ بمستقبلك المالي، ويساعدك على اتخاذ قرارات أفضل.

@@ -430,7 +430,7 @@ export function HeroScene() {
       ctx.save();
       heartPath(cx, cy, hs * 0.97);
       ctx.clip();
-      const ekgProgress = (t * 35) % (W * 0.9);
+      const ekgProgress = (t * 18) % (W * 0.9);
       const ekgX0 = cx - heartR * 1.1;
       const ekgW2 = heartR * 2.2;
       ctx.beginPath();

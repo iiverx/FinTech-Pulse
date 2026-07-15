@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "نبض | Pulse"
+version = "1.0.0"
+id = "artifacts/nabdh-pulse"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23611
+
+[services.development]
+run = "pnpm --filter @workspace/nabdh-pulse run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/nabdh-pulse", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/nabdh-pulse/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23611"
+BASE_PATH = "/"

@@ -186,68 +186,81 @@ export function HeroScene() {
       glow("#ffd700", 8); ctx.stroke(); noGlow();
 
       if (icon === "piggybank") {
-        // Classic ceramic حصالة — round jar, no animal features
+        // Paper dollar bill — ورقة دولار
         ctx.save();
         ctx.translate(cx2, cy2);
-        const s = r * 0.6;
+        const bw = r * 1.9, bh = r * 0.95;
+        const bx = -bw / 2, by = -bh / 2;
 
-        // Body — plump oval
-        const bodyG = ctx.createRadialGradient(-s * 0.28, -s * 0.22, 0, 0, s * 0.08, s * 1.15);
-        bodyG.addColorStop(0, "#ffd4e8");
-        bodyG.addColorStop(0.45, "#f48fb1");
-        bodyG.addColorStop(1, "#c2185b");
-        ctx.beginPath();
-        ctx.ellipse(0, s * 0.08, s * 0.92, s * 0.82, 0, 0, Math.PI * 2);
-        ctx.fillStyle = bodyG; ctx.fill();
+        // Slight tilt for life
+        ctx.rotate(-0.12);
 
-        // Body outline glow
-        ctx.beginPath();
-        ctx.ellipse(0, s * 0.08, s * 0.92, s * 0.82, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = "#ffd700bb"; ctx.lineWidth = 1.8;
-        glow("#ffd700", 7); ctx.stroke(); noGlow();
+        // Shadow under bill
+        ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 4;
+        ctx.beginPath(); (ctx as any).roundRect(bx + 2, by + 2, bw, bh, 5);
+        ctx.fillStyle = "#003300"; ctx.fill();
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
-        // Glass shine (top-left highlight)
-        const shineG = ctx.createRadialGradient(-s * 0.32, -s * 0.45, 0, -s * 0.2, -s * 0.3, s * 0.55);
-        shineG.addColorStop(0, "rgba(255,255,255,0.55)");
-        shineG.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.beginPath();
-        ctx.ellipse(-s * 0.22, -s * 0.3, s * 0.38, s * 0.26, -0.5, 0, Math.PI * 2);
-        ctx.fillStyle = shineG; ctx.fill();
+        // Bill body gradient (green banknote)
+        const billG = ctx.createLinearGradient(bx, by, bx, by + bh);
+        billG.addColorStop(0, "#2d7a3a");
+        billG.addColorStop(0.4, "#1a5c28");
+        billG.addColorStop(1, "#0f3d1a");
+        ctx.beginPath(); (ctx as any).roundRect(bx, by, bw, bh, 5);
+        ctx.fillStyle = billG; ctx.fill();
 
-        // Coin slot — dark rounded slit on top
-        ctx.save();
-        ctx.beginPath();
-        (ctx as any).roundRect(-s * 0.22, -s * 0.88, s * 0.44, s * 0.13, s * 0.07);
-        ctx.fillStyle = "#7b0033"; ctx.fill();
-        ctx.strokeStyle = "#ffd700aa"; ctx.lineWidth = 1.2; ctx.stroke();
-        ctx.restore();
+        // Outer border
+        ctx.strokeStyle = "#4caf5088"; ctx.lineWidth = 1.5;
+        glow("#00ff88", 6); ctx.stroke(); noGlow();
 
-        // Four stubby legs at bottom
-        ctx.fillStyle = "#c2185b";
-        [-s * 0.48, -s * 0.16, s * 0.16, s * 0.48].forEach(lx => {
-          ctx.beginPath();
-          ctx.ellipse(lx, s * 0.82, s * 0.14, s * 0.2, 0, 0, Math.PI * 2);
-          ctx.fill();
-          // Leg shine
-          ctx.beginPath();
-          ctx.ellipse(lx - s * 0.03, s * 0.76, s * 0.06, s * 0.06, 0, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fill();
-          ctx.fillStyle = "#c2185b";
-        });
+        // Inner decorative border (double line)
+        const pad = bw * 0.055;
+        ctx.beginPath(); (ctx as any).roundRect(bx + pad, by + pad, bw - pad * 2, bh - pad * 2, 3);
+        ctx.strokeStyle = "rgba(100,220,120,0.35)"; ctx.lineWidth = 1; ctx.stroke();
+        ctx.beginPath(); (ctx as any).roundRect(bx + pad * 1.7, by + pad * 1.7, bw - pad * 3.4, bh - pad * 3.4, 2);
+        ctx.strokeStyle = "rgba(100,220,120,0.2)"; ctx.lineWidth = 0.8; ctx.stroke();
 
-        // Gold coin dropping into slot
-        const coinBob2 = Math.sin(t * 2.2 + cx2) * s * 0.08;
-        ctx.beginPath();
-        ctx.ellipse(0, -s * 1.18 + coinBob2, s * 0.22, s * 0.22, 0, 0, Math.PI * 2);
-        const cg2 = ctx.createRadialGradient(-s * 0.07, -s * 1.22 + coinBob2, 0, 0, -s * 1.18 + coinBob2, s * 0.22);
-        cg2.addColorStop(0, "#fffacc"); cg2.addColorStop(0.5, "#ffd700"); cg2.addColorStop(1, "#c87000");
-        ctx.fillStyle = cg2; ctx.fill();
-        ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 1.5;
-        glow("#ffd700", 6); ctx.stroke(); noGlow();
-        ctx.font = `bold ${s * 0.26}px Arial`;
-        ctx.fillStyle = "#7B4F00";
+        // Left oval seal
+        ctx.beginPath(); ctx.ellipse(bx + bw * 0.18, by + bh * 0.5, bw * 0.1, bh * 0.32, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(150,255,150,0.3)"; ctx.lineWidth = 1; ctx.stroke();
+
+        // Right oval seal
+        ctx.beginPath(); ctx.ellipse(bx + bw * 0.82, by + bh * 0.5, bw * 0.1, bh * 0.32, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(150,255,150,0.3)"; ctx.lineWidth = 1; ctx.stroke();
+
+        // Centre circle for $
+        const circleR = bh * 0.31;
+        const circleG = ctx.createRadialGradient(0, 0, 0, 0, 0, circleR);
+        circleG.addColorStop(0, "rgba(60,160,70,0.6)");
+        circleG.addColorStop(1, "rgba(20,80,30,0.2)");
+        ctx.beginPath(); ctx.arc(0, 0, circleR, 0, Math.PI * 2);
+        ctx.fillStyle = circleG; ctx.fill();
+        ctx.strokeStyle = "rgba(150,255,150,0.4)"; ctx.lineWidth = 1; ctx.stroke();
+
+        // Big $ sign
+        ctx.font = `bold ${bh * 0.58}px Arial`;
+        ctx.fillStyle = "#a5d6a7";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("$", 0, -s * 1.18 + coinBob2 + 1);
+        glow("#00ff88", 8); ctx.fillText("$", 0, 1); noGlow();
+        ctx.textBaseline = "alphabetic";
+
+        // "100" denomination left
+        ctx.font = `bold ${bh * 0.22}px Arial`;
+        ctx.fillStyle = "#81c784cc";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("100", bx + bw * 0.18, by + bh * 0.5);
+
+        // "100" denomination right
+        ctx.fillText("100", bx + bw * 0.82, by + bh * 0.5);
+
+        // Top micro-text strip
+        ctx.font = `${bh * 0.12}px Arial`;
+        ctx.fillStyle = "rgba(150,255,150,0.35)";
+        ctx.fillText("NABDH  PULSE  FINANCIAL", 0, by + bh * 0.2);
+
+        // Bottom micro-text strip
+        ctx.fillText("SMART  INVESTMENT  INDEX", 0, by + bh * 0.82);
+
         ctx.textBaseline = "alphabetic";
         ctx.restore();
       } else {

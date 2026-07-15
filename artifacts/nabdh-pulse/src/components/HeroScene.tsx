@@ -184,11 +184,61 @@ export function HeroScene() {
       ctx.fillStyle = g; ctx.fill();
       ctx.strokeStyle = "#ffd700cc"; ctx.lineWidth = 2;
       glow("#ffd700", 8); ctx.stroke(); noGlow();
-      ctx.font = `bold ${r * 1.1}px Arial`;
-      ctx.fillStyle = "#ffd700";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(icon, cx2, cy2 + 1);
-      ctx.textBaseline = "alphabetic";
+
+      if (icon === "piggybank") {
+        // Draw a piggy bank shape
+        ctx.save();
+        ctx.translate(cx2, cy2);
+        const s = r * 0.55;
+        // Body
+        const bodyG = ctx.createRadialGradient(-s * 0.2, -s * 0.1, 0, 0, 0, s * 1.1);
+        bodyG.addColorStop(0, "#ffc0cb"); bodyG.addColorStop(1, "#e07888");
+        ctx.beginPath(); ctx.ellipse(0, s * 0.1, s, s * 0.85, 0, 0, Math.PI * 2);
+        ctx.fillStyle = bodyG; ctx.fill();
+        // Ear (top left)
+        ctx.beginPath(); ctx.ellipse(-s * 0.55, -s * 0.7, s * 0.25, s * 0.3, -0.4, 0, Math.PI * 2);
+        ctx.fillStyle = "#e07888"; ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-s * 0.55, -s * 0.7, s * 0.14, s * 0.18, -0.4, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffaabb"; ctx.fill();
+        // Snout
+        ctx.beginPath(); ctx.ellipse(s * 0.55, s * 0.15, s * 0.32, s * 0.24, 0, 0, Math.PI * 2);
+        ctx.fillStyle = "#e07888"; ctx.fill();
+        ctx.beginPath(); ctx.arc(s * 0.43, s * 0.18, s * 0.07, 0, Math.PI * 2);
+        ctx.fillStyle = "#b05060"; ctx.fill();
+        ctx.beginPath(); ctx.arc(s * 0.63, s * 0.18, s * 0.07, 0, Math.PI * 2);
+        ctx.fillStyle = "#b05060"; ctx.fill();
+        // Eye
+        ctx.beginPath(); ctx.arc(s * 0.18, -s * 0.25, s * 0.1, 0, Math.PI * 2);
+        ctx.fillStyle = "#222"; ctx.fill();
+        ctx.beginPath(); ctx.arc(s * 0.22, -s * 0.28, s * 0.04, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff"; ctx.fill();
+        // Coin slot on top
+        ctx.fillStyle = "#b05060"; ctx.fillRect(-s * 0.2, -s * 0.92, s * 0.4, s * 0.1);
+        // Legs
+        ctx.fillStyle = "#e07888";
+        [-s * 0.45, -s * 0.15, s * 0.15, s * 0.45].forEach(lx => {
+          ctx.beginPath(); ctx.ellipse(lx, s * 0.82, s * 0.13, s * 0.22, 0, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        // Gold coin (floating above slot)
+        ctx.beginPath(); ctx.arc(-s * 0.05, -s * 1.25, s * 0.22, 0, Math.PI * 2);
+        const cg2 = ctx.createRadialGradient(-s * 0.1, -s * 1.3, 0, -s * 0.05, -s * 1.25, s * 0.22);
+        cg2.addColorStop(0, "#fffacc"); cg2.addColorStop(0.5, "#ffd700"); cg2.addColorStop(1, "#c87000");
+        ctx.fillStyle = cg2; ctx.fill();
+        ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 1.5;
+        glow("#ffd700", 5); ctx.stroke(); noGlow();
+        ctx.font = `bold ${s * 0.28}px Arial`;
+        ctx.fillStyle = "#8B6000"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("$", -s * 0.05, -s * 1.24);
+        ctx.textBaseline = "alphabetic";
+        ctx.restore();
+      } else {
+        ctx.font = `bold ${r * 1.1}px Arial`;
+        ctx.fillStyle = "#ffd700";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(icon, cx2, cy2 + 1);
+        ctx.textBaseline = "alphabetic";
+      }
     };
 
     // Coins
@@ -207,8 +257,27 @@ export function HeroScene() {
       { angle: -0.8, speed: 0.65 }, { angle: 0.8, speed: 0.6 },
     ];
 
-    // EKG
-    const ekgPts = [0, 0, 0.05, 0, 0, 0.12, 0, 1, -0.4, 0.2, 0, 0, -0.06, 0, 0, 0, 0.07, 0, 0, 0, 0, 0.05, 0, 0];
+    // EKG — proper cardiac ECG waveform (P wave → QRS complex → T wave)
+    const ekgPts = [
+      // Baseline
+      0, 0, 0, 0, 0,
+      // P wave (small rounded bump)
+      0.03, 0.09, 0.15, 0.18, 0.15, 0.09, 0.03,
+      // PR interval
+      0, 0, 0,
+      // Q dip
+      -0.08, -0.14,
+      // R spike (sharp upstroke)
+      0.15, 0.45, 0.85, 1.0, 0.85, 0.45,
+      // S dip (sharp downstroke)
+      -0.3, -0.38, -0.28, -0.12,
+      // ST segment (slightly elevated)
+      0.02, 0.02, 0.02, 0.02,
+      // T wave (smooth rounded)
+      0.05, 0.12, 0.22, 0.28, 0.28, 0.22, 0.12, 0.05,
+      // Return to baseline
+      0, 0, 0, 0, 0, 0,
+    ];
 
     const draw = () => {
       raf = requestAnimationFrame(draw);
@@ -362,7 +431,7 @@ export function HeroScene() {
         { dx: -0.16, dy: -0.22, label: "🏦" },
         { dx: 0, dy: -0.25, label: "$" },
         { dx: 0.16, dy: -0.22, label: "📊" },
-        { dx: 0.28, dy: -0.12, label: "🐷" },
+        { dx: 0.28, dy: -0.12, label: "piggybank" },
       ];
 
       l1.forEach((b) => {

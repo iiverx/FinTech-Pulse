@@ -2,7 +2,6 @@ import React from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { CircularIndicator } from "@/components/CircularIndicator";
-import { HeroScene } from "@/components/HeroScene";
 import { Link } from "wouter";
 import { 
   TrendingUp, 
@@ -53,8 +52,44 @@ export default function LandingPage() {
               </div>
             </div>
             
-            <div className="rounded-2xl overflow-hidden" style={{ height: "580px" }}>
-              <HeroScene />
+            <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 to-blue-950 flex flex-col items-center justify-center gap-6 p-10" style={{ height: "580px" }}>
+              {/* Pulse score ring */}
+              <div className="relative flex items-center justify-center">
+                <svg width="200" height="200" viewBox="0 0 200 200">
+                  <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="14" />
+                  <circle cx="100" cy="100" r="85" fill="none" stroke="url(#heroGrad)" strokeWidth="14"
+                    strokeLinecap="round" strokeDasharray="534" strokeDashoffset="134"
+                    transform="rotate(-90 100 100)" />
+                  <defs>
+                    <linearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#3B82F6" />
+                      <stop offset="100%" stopColor="#10B981" />
+                    </linearGradient>
+                  </defs>
+                  <text x="100" y="92" textAnchor="middle" fill="white" fontSize="52" fontWeight="900" fontFamily="Tajawal, sans-serif">78</text>
+                  <text x="100" y="118" textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="15" fontFamily="Tajawal, sans-serif">نبضة مالية</text>
+                </svg>
+              </div>
+              {/* Stats row */}
+              <div className="grid grid-cols-3 gap-4 w-full">
+                {[
+                  { label: "الدخل", value: "12,500", unit: "ر.س", color: "#3B82F6" },
+                  { label: "الادخار", value: "18%", unit: "", color: "#10B981" },
+                  { label: "الالتزامات", value: "34%", unit: "", color: "#F59E0B" },
+                ].map((s) => (
+                  <div key={s.label} className="bg-white/5 rounded-xl p-4 text-center border border-white/10">
+                    <p className="text-xs text-white/50 mb-1">{s.label}</p>
+                    <p className="text-xl font-black" style={{ color: s.color }}>{s.value}<span className="text-xs font-normal text-white/40 mr-1">{s.unit}</span></p>
+                  </div>
+                ))}
+              </div>
+              {/* Pulse line */}
+              <svg width="100%" height="60" viewBox="0 0 300 60" preserveAspectRatio="none">
+                <polyline points="0,30 40,30 60,10 80,50 100,20 120,40 140,15 160,45 180,25 220,30 300,30"
+                  fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7"/>
+                <polyline points="0,30 40,30 60,10 80,50 100,20 120,40 140,15 160,45 180,25 220,30 300,30"
+                  fill="none" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.3" strokeDasharray="4 6"/>
+              </svg>
             </div>
           </div>
         </div>

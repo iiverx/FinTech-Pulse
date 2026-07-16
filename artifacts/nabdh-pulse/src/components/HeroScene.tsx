@@ -5,25 +5,28 @@ export function HeroScene() {
 
   useEffect(() => {
     const canvas = canvasRef.current!;
-    const ctx = canvas.getContext("2d")!;
+    const ctx    = canvas.getContext("2d")!;
     let raf: number;
     let t = 0;
+    let lastTime = 0;
 
     const resize = () => {
-      canvas.width = canvas.offsetWidth * devicePixelRatio;
+      canvas.width  = canvas.offsetWidth  * devicePixelRatio;
       canvas.height = canvas.offsetHeight * devicePixelRatio;
     };
     resize();
     window.addEventListener("resize", resize);
 
     // ─── helpers ─────────────────────────────────────────────────────────────
-    const glow = (color: string, blur: number) => { ctx.shadowColor = color; ctx.shadowBlur = blur; };
+    // Glow is expensive — use sparingly with lower blur values
+    const glow   = (color: string, blur: number) => { ctx.shadowColor = color; ctx.shadowBlur = blur * 0.6; };
     const noGlow = () => { ctx.shadowBlur = 0; };
 
-    // Heart path — tip at BOTTOM, lobes at TOP (standard heart orientation)
+    // Heart path — tip at BOTTOM, lobes at TOP
     const heartPath = (cx: number, cy: number, size: number) => {
       ctx.beginPath();
-      for (let i = 0; i <= 360; i++) {
+      // Use fewer points (every 2°) — same shape, half the math
+      for (let i = 0; i <= 360; i += 2) {
         const rad = (i * Math.PI) / 180;
         const x = 16 * Math.pow(Math.sin(rad), 3);
         const y = -(13 * Math.cos(rad) - 5 * Math.cos(2 * rad) - 2 * Math.cos(3 * rad) - Math.cos(4 * rad));
@@ -45,7 +48,6 @@ export function HeroScene() {
       { x: 0.82, w: 0.03, h: 0.22 }, { x: 0.85, w: 0.05, h: 0.35 },
       { x: 0.90, w: 0.03, h: 0.25 }, { x: 0.93, w: 0.04, h: 0.18 },
     ];
-    // Pre-generate window seeds
     const windowSeeds: boolean[][] = buildings.map(b => {
       const rows = Math.floor((b.h * 600 - 16) / 10);
       const cols = Math.floor((b.w * 800 - 8) / 8);
@@ -61,7 +63,6 @@ export function HeroScene() {
         bg.addColorStop(1, "rgba(5,20,10,0.9)");
         ctx.fillStyle = bg;
         ctx.fillRect(bx, by, bw, bh);
-        // Windows
         const rows = Math.floor((bh - 16) / 10);
         const cols = Math.floor((bw - 8) / 8);
         let idx = 0;
@@ -76,7 +77,7 @@ export function HeroScene() {
       });
     };
 
-    // Data panel
+    // Data panel — no per-call glow on the border (batch one glow only for the stroke)
     const drawPanel = (
       x: number, y: number, w: number, h: number,
       title: string, value: string, color: string,
@@ -93,7 +94,9 @@ export function HeroScene() {
       ctx.fill();
       ctx.strokeStyle = color + "88";
       ctx.lineWidth = 1.5;
-      glow(color, 8); ctx.stroke(); noGlow();
+      ctx.shadowColor = color; ctx.shadowBlur = 5;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
 
       ctx.fillStyle = color;
@@ -129,7 +132,7 @@ export function HeroScene() {
           i === 0 ? ctx.moveTo(lx, ly) : ctx.lineTo(lx, ly);
         });
         ctx.strokeStyle = color + "cc";
-        ctx.lineWidth = 1.5; glow(color, 4); ctx.stroke(); noGlow();
+        ctx.lineWidth = 1.5; ctx.stroke();
       } else {
         const slices = [0.45, 0.3, 0.25];
         const cols2 = [color, "#ffd700", "#44aaff"];
@@ -146,20 +149,20 @@ export function HeroScene() {
       ctx.restore();
     };
 
-    // Tree branch
+    // Tree branch — remove per-branch glow (too many calls)
     const drawBranch = (x1: number, y1: number, x2: number, y2: number, width: number, level: number) => {
       const g = ctx.createLinearGradient(x1, y1, x2, y2);
       g.addColorStop(0, level === 0 ? "#c8860a" : "#a06808");
       g.addColorStop(1, level === 0 ? "#a06808" : "#507020");
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
       ctx.strokeStyle = g; ctx.lineWidth = width; ctx.lineCap = "round";
-      glow("#c8860a", 6); ctx.stroke(); noGlow();
+      ctx.stroke();
     };
 
-    // Leaf cluster
     const drawLeafCluster = (cx2: number, cy2: number, r: number) => {
-      for (let l = 0; l < 5; l++) {
-        const la = (l / 5) * Math.PI * 2;
+      // Simplified: 3 leaves instead of 5 (visually almost identical)
+      for (let l = 0; l < 3; l++) {
+        const la = (l / 3) * Math.PI * 2;
         const lx = cx2 + Math.cos(la) * r * 0.55;
         const ly = cy2 + Math.sin(la) * r * 0.55;
         const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, r * 0.8);
@@ -173,62 +176,47 @@ export function HeroScene() {
       ctx.fillStyle = cg; ctx.fill();
       ctx.beginPath(); ctx.arc(cx2, cy2, r, 0, Math.PI * 2);
       ctx.strokeStyle = "#00ff88aa"; ctx.lineWidth = 1.5;
-      glow("#00ff88", 10); ctx.stroke(); noGlow();
+      // One glow per cluster instead of per-leaf
+      ctx.shadowColor = "#00ff88"; ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
     };
 
-    // Icon badge
     const drawIconBadge = (cx2: number, cy2: number, r: number, icon: string) => {
       const g = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, r);
       g.addColorStop(0, "rgba(0,180,80,0.9)"); g.addColorStop(1, "rgba(0,60,30,0.95)");
       ctx.beginPath(); ctx.arc(cx2, cy2, r, 0, Math.PI * 2);
       ctx.fillStyle = g; ctx.fill();
       ctx.strokeStyle = "#ffd700cc"; ctx.lineWidth = 2;
-      glow("#ffd700", 8); ctx.stroke(); noGlow();
+      ctx.shadowColor = "#ffd700"; ctx.shadowBlur = 5;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
 
       if (icon === "piggybank") {
-        // Paper dollar bill — ورقة دولار
         ctx.save();
         ctx.translate(cx2, cy2);
         const bw = r * 1.9, bh = r * 0.95;
         const bx = -bw / 2, by = -bh / 2;
-
-        // Slight tilt for life
         ctx.rotate(-0.12);
-
-        // Shadow under bill
-        ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 4;
+        ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 5; ctx.shadowOffsetY = 3;
         ctx.beginPath(); (ctx as any).roundRect(bx + 2, by + 2, bw, bh, 5);
         ctx.fillStyle = "#003300"; ctx.fill();
         ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-
-        // Bill body gradient (green banknote)
         const billG = ctx.createLinearGradient(bx, by, bx, by + bh);
         billG.addColorStop(0, "#2d7a3a");
         billG.addColorStop(0.4, "#1a5c28");
         billG.addColorStop(1, "#0f3d1a");
         ctx.beginPath(); (ctx as any).roundRect(bx, by, bw, bh, 5);
         ctx.fillStyle = billG; ctx.fill();
-
-        // Outer border
         ctx.strokeStyle = "#4caf5088"; ctx.lineWidth = 1.5;
-        glow("#00ff88", 6); ctx.stroke(); noGlow();
-
-        // Inner decorative border (double line)
+        ctx.shadowColor = "#00ff88"; ctx.shadowBlur = 4; ctx.stroke(); ctx.shadowBlur = 0;
         const pad = bw * 0.055;
         ctx.beginPath(); (ctx as any).roundRect(bx + pad, by + pad, bw - pad * 2, bh - pad * 2, 3);
         ctx.strokeStyle = "rgba(100,220,120,0.35)"; ctx.lineWidth = 1; ctx.stroke();
-        ctx.beginPath(); (ctx as any).roundRect(bx + pad * 1.7, by + pad * 1.7, bw - pad * 3.4, bh - pad * 3.4, 2);
-        ctx.strokeStyle = "rgba(100,220,120,0.2)"; ctx.lineWidth = 0.8; ctx.stroke();
-
-        // Left oval seal
         ctx.beginPath(); ctx.ellipse(bx + bw * 0.18, by + bh * 0.5, bw * 0.1, bh * 0.32, 0, 0, Math.PI * 2);
         ctx.strokeStyle = "rgba(150,255,150,0.3)"; ctx.lineWidth = 1; ctx.stroke();
-
-        // Right oval seal
         ctx.beginPath(); ctx.ellipse(bx + bw * 0.82, by + bh * 0.5, bw * 0.1, bh * 0.32, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(150,255,150,0.3)"; ctx.lineWidth = 1; ctx.stroke();
-
-        // Centre circle for $
+        ctx.stroke();
         const circleR = bh * 0.31;
         const circleG = ctx.createRadialGradient(0, 0, 0, 0, 0, circleR);
         circleG.addColorStop(0, "rgba(60,160,70,0.6)");
@@ -236,31 +224,20 @@ export function HeroScene() {
         ctx.beginPath(); ctx.arc(0, 0, circleR, 0, Math.PI * 2);
         ctx.fillStyle = circleG; ctx.fill();
         ctx.strokeStyle = "rgba(150,255,150,0.4)"; ctx.lineWidth = 1; ctx.stroke();
-
-        // Big $ sign
         ctx.font = `bold ${bh * 0.58}px Arial`;
         ctx.fillStyle = "#a5d6a7";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        glow("#00ff88", 8); ctx.fillText("$", 0, 1); noGlow();
+        ctx.shadowColor = "#00ff88"; ctx.shadowBlur = 6; ctx.fillText("$", 0, 1); ctx.shadowBlur = 0;
         ctx.textBaseline = "alphabetic";
-
-        // "100" denomination left
         ctx.font = `bold ${bh * 0.22}px Arial`;
         ctx.fillStyle = "#81c784cc";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText("100", bx + bw * 0.18, by + bh * 0.5);
-
-        // "100" denomination right
         ctx.fillText("100", bx + bw * 0.82, by + bh * 0.5);
-
-        // Top micro-text strip
         ctx.font = `${bh * 0.12}px Arial`;
         ctx.fillStyle = "rgba(150,255,150,0.35)";
         ctx.fillText("NABDH  PULSE  FINANCIAL", 0, by + bh * 0.2);
-
-        // Bottom micro-text strip
         ctx.fillText("SMART  INVESTMENT  INDEX", 0, by + bh * 0.82);
-
         ctx.textBaseline = "alphabetic";
         ctx.restore();
       } else {
@@ -272,47 +249,45 @@ export function HeroScene() {
       }
     };
 
-    // Coins
+    // Reduced: 8 coins instead of 16
     type Coin = { x: number; y: number; phase: number; r: number };
-    const coins: Coin[] = Array.from({ length: 16 }, (_, i) => ({
-      x: 0.08 + ((i * 0.0573) % 0.84),
-      y: 0.1 + ((i * 0.0831) % 0.75),
+    const coins: Coin[] = Array.from({ length: 8 }, (_, i) => ({
+      x: 0.08 + ((i * 0.115) % 0.84),
+      y: 0.1  + ((i * 0.166) % 0.75),
       phase: i * 0.7,
       r: 9 + (i % 4) * 3,
     }));
 
-    // Energy streams
+    // Reduced: 4 energy streams instead of 6
     const energyStreams = [
       { angle: -0.4, speed: 0.6 }, { angle: 0.4, speed: 0.5 },
       { angle: Math.PI + 0.3, speed: 0.7 }, { angle: Math.PI - 0.3, speed: 0.55 },
-      { angle: -0.8, speed: 0.65 }, { angle: 0.8, speed: 0.6 },
     ];
 
-    // EKG — proper cardiac ECG waveform (P wave → QRS complex → T wave)
+    // EKG waveform points
     const ekgPts = [
-      // Baseline
       0, 0, 0, 0, 0,
-      // P wave (small rounded bump)
       0.03, 0.09, 0.15, 0.18, 0.15, 0.09, 0.03,
-      // PR interval
       0, 0, 0,
-      // Q dip
       -0.08, -0.14,
-      // R spike (sharp upstroke)
       0.15, 0.45, 0.85, 1.0, 0.85, 0.45,
-      // S dip (sharp downstroke)
       -0.3, -0.38, -0.28, -0.12,
-      // ST segment (slightly elevated)
       0.02, 0.02, 0.02, 0.02,
-      // T wave (smooth rounded)
       0.05, 0.12, 0.22, 0.28, 0.28, 0.22, 0.12, 0.05,
-      // Return to baseline
       0, 0, 0, 0, 0, 0,
     ];
 
-    const draw = () => {
+    const draw = (now: number) => {
       raf = requestAnimationFrame(draw);
-      t += 0.016;
+
+      // Pause when tab is hidden
+      if (document.hidden) return;
+
+      // Throttle to ~30 fps
+      if (now - lastTime < 33) return;
+      lastTime = now;
+
+      t += 0.033;
       const W = canvas.width, H = canvas.height;
       const scale = Math.min(W, H);
       const cx = W / 2, cy = H * 0.52;
@@ -325,16 +300,15 @@ export function HeroScene() {
       ctx.fillStyle = bgG;
       ctx.fillRect(0, 0, W, H);
 
-      // Stars
-      for (let i = 0; i < 80; i++) {
+      // Stars — reduced to 40
+      for (let i = 0; i < 40; i++) {
         const sx = (i * 173.3) % W;
-        const sy = (i * 97.1) % (H * 0.7);
+        const sy = (i * 97.1)  % (H * 0.7);
         const sa2 = 0.3 + 0.7 * Math.abs(Math.sin(t * 0.5 + i));
         ctx.beginPath(); ctx.arc(sx, sy, 0.8, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(200,255,200,${sa2 * 0.5})`; ctx.fill();
       }
 
-      // Skyline
       drawSkyline(W, H);
 
       // Ground glow
@@ -358,13 +332,13 @@ export function HeroScene() {
         ctx.lineWidth = 1; ctx.stroke();
       }
 
-      // Energy streams
+      // Energy streams — reduced segments: 10 instead of 20
       const heartR = scale * 0.155;
       energyStreams.forEach((s) => {
         const len = scale * 0.42;
         const streamT = (t * s.speed) % 1;
-        for (let seg = 0; seg < 20; seg++) {
-          const prog = (streamT + seg * 0.05) % 1;
+        for (let seg = 0; seg < 10; seg++) {
+          const prog = (streamT + seg * 0.1) % 1;
           const dist = prog * len;
           const wave = Math.sin(prog * Math.PI * 4 + t * 3) * scale * 0.03;
           const sx2 = cx + Math.cos(s.angle) * dist + Math.cos(s.angle + Math.PI / 2) * wave;
@@ -375,8 +349,8 @@ export function HeroScene() {
         }
         ctx.beginPath();
         ctx.moveTo(cx + Math.cos(s.angle) * heartR * 0.8, cy + Math.sin(s.angle) * heartR * 0.8);
-        for (let i = 1; i <= 30; i++) {
-          const prog2 = i / 30;
+        for (let i = 1; i <= 15; i++) {
+          const prog2 = i / 15;
           const dist2 = prog2 * len * 0.6;
           const wave2 = Math.sin(prog2 * Math.PI * 4 + t * 3 + s.speed) * scale * 0.025;
           ctx.lineTo(
@@ -388,7 +362,7 @@ export function HeroScene() {
         ctx.lineWidth = 2; ctx.stroke();
       });
 
-      // ── Crystal heart ────────────────────────────────────────────────────────
+      // ── Crystal heart ─────────────────────────────────────────────────────
       const heartPulse = 1 + Math.sin(t * 1.8) * 0.03;
       const hs = heartR / 16 * heartPulse;
 
@@ -426,15 +400,14 @@ export function HeroScene() {
       ctx.fillStyle = sheenG; ctx.globalAlpha = 0.5; ctx.fill(); ctx.globalAlpha = 1;
       ctx.restore();
 
-      // EKG inside heart — seamless scrolling wave
+      // EKG inside heart
       ctx.save();
       heartPath(cx, cy, hs * 0.97);
       ctx.clip();
 
-      const waveW = heartR * 1.55;                 // one full beat cycle width
-      const ekgScroll = (t * 28) % waveW;          // smooth scroll offset
+      const waveW = heartR * 1.55;
+      const ekgScroll = (t * 28) % waveW;
 
-      // Blue→Green gradient matching website palette
       const ekgGrad = ctx.createLinearGradient(cx - heartR, cy, cx + heartR, cy);
       ekgGrad.addColorStop(0,   "#1D4ED8");
       ekgGrad.addColorStop(0.5, "#2563EB");
@@ -458,7 +431,7 @@ export function HeroScene() {
       glow("#4f9eff", 16); ctx.stroke(); noGlow();
       ctx.restore();
 
-      // ── Tree ─────────────────────────────────────────────────────────────────
+      // ── Tree ──────────────────────────────────────────────────────────────
       const treeBaseX = cx;
       const treeBaseY = cy - heartR * 0.3;
       const trunkH = scale * 0.28;
@@ -469,14 +442,14 @@ export function HeroScene() {
       const l1 = [
         { dx: -0.28, dy: -0.12, label: "$" },
         { dx: -0.16, dy: -0.22, label: "🏦" },
-        { dx: 0, dy: -0.25, label: "$" },
-        { dx: 0.16, dy: -0.22, label: "📊" },
-        { dx: 0.28, dy: -0.12, label: "piggybank" },
+        { dx: 0,     dy: -0.25, label: "$" },
+        { dx: 0.16,  dy: -0.22, label: "📊" },
+        { dx: 0.28,  dy: -0.12, label: "piggybank" },
       ];
 
       l1.forEach((b) => {
         const bx = treeBaseX + b.dx * scale;
-        const by = trunkTop + b.dy * scale;
+        const by = trunkTop  + b.dy * scale;
         drawBranch(treeBaseX, trunkTop, bx, by, scale * 0.013, 1);
         for (let sb = 0; sb < 2; sb++) {
           const sAngle = Math.atan2(by - trunkTop, bx - treeBaseX);
@@ -490,7 +463,6 @@ export function HeroScene() {
         drawIconBadge(bx, by, scale * 0.033, b.label);
       });
 
-      // Extra leaf clusters
       [
         { x: cx - 0.22 * scale, y: trunkTop - 0.05 * scale },
         { x: cx + 0.22 * scale, y: trunkTop - 0.05 * scale },
@@ -498,23 +470,21 @@ export function HeroScene() {
         { x: cx + 0.35 * scale, y: trunkTop + 0.05 * scale },
       ].forEach(p => drawLeafCluster(p.x, p.y, scale * 0.04));
 
-      // ── Data panels ───────────────────────────────────────────────────────────
+      // ── Data panels ───────────────────────────────────────────────────────
       const panelW = scale * 0.24, panelH = scale * 0.22;
       const bob = Math.sin(t * 0.7) * 4;
-      drawPanel(W * 0.02, H * 0.22 + bob, panelW, panelH, "INCOME", "+$4,820", "#00ff88", "bar");
-      drawPanel(W * 0.02, H * 0.52 - bob, panelW, panelH, "SAVINGS", "$12,500", "#44aaff", "line");
+      drawPanel(W * 0.02, H * 0.22 + bob, panelW, panelH, "INCOME",      "+$4,820", "#00ff88", "bar");
+      drawPanel(W * 0.02, H * 0.52 - bob, panelW, panelH, "SAVINGS",     "$12,500", "#44aaff", "line");
       drawPanel(W - panelW - W * 0.02, H * 0.22 - bob, panelW, panelH, "INVESTMENTS", "+18.4%", "#00ff88", "line");
-      drawPanel(W - panelW - W * 0.02, H * 0.52 + bob, panelW, panelH, "EXPENSES", "$2,340", "#ff8844", "pie");
+      drawPanel(W - panelW - W * 0.02, H * 0.52 + bob, panelW, panelH, "EXPENSES",   "$2,340", "#ff8844", "pie");
 
-      // ── Coins ─────────────────────────────────────────────────────────────────
-      // Panel zones to avoid (left strip + right strip)
-      const pZoneW = (panelW + W * 0.04) / W;   // left/right panel x fraction
-      const pZoneH = (panelH + 20) / H;           // panel height fraction
-      const savingsY = (H * 0.52) / H;            // SAVINGS panel centre y fraction
+      // ── Coins (8) ─────────────────────────────────────────────────────────
+      const pZoneW = (panelW + W * 0.04) / W;
+      const pZoneH = (panelH + 20) / H;
+      const savingsY = (H * 0.52) / H;
 
       coins.forEach((coin) => {
-        // Skip coins that land on top of the SAVINGS panel
-        const inLeftStrip = coin.x < pZoneW;
+        const inLeftStrip  = coin.x < pZoneW;
         const inSavingsRow = coin.y > savingsY - pZoneH * 0.65 && coin.y < savingsY + pZoneH * 0.65;
         if (inLeftStrip && inSavingsRow) return;
 
@@ -528,8 +498,8 @@ export function HeroScene() {
         cg.addColorStop(0.75, "#c87000"); cg.addColorStop(1, "#6b3800");
         ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
         ctx.fillStyle = cg; ctx.fill();
-        glow("#ffd700", 6);
-        ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 1; ctx.stroke(); noGlow();
+        // Single glow for all coins instead of per-coin shadow stroke
+        ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 1; ctx.stroke();
         ctx.font = `bold ${rx * 0.85}px Arial`;
         ctx.fillStyle = "rgba(180,100,0,0.85)";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -538,7 +508,7 @@ export function HeroScene() {
       });
     };
 
-    draw();
+    requestAnimationFrame(draw);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);

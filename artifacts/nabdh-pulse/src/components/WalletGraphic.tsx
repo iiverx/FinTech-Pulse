@@ -72,6 +72,7 @@ export function WalletGraphic({ level, pulse = true, className = "", style }: Wa
   const rafRef    = useRef<number>(0);
   const levelRef  = useRef(level);
   const coins     = useRef<Particle[]>([]);
+  const lastTime  = useRef(0);
 
   useEffect(() => { levelRef.current = level; }, [level]);
 
@@ -88,7 +89,8 @@ export function WalletGraphic({ level, pulse = true, className = "", style }: Wa
 
     function spawnCoins() {
       const W = canvas.width, H = canvas.height;
-      coins.current = Array.from({ length: 10 }, (_, i) => ({
+      // Reduced from 10 to 6 coins
+      coins.current = Array.from({ length: 6 }, (_, i) => ({
         x: W * (0.1 + Math.random() * 0.8),
         y: H * (0.1 + Math.random() * 0.8),
         vx: (Math.random() - 0.5) * 0.5,
@@ -103,9 +105,12 @@ export function WalletGraphic({ level, pulse = true, className = "", style }: Wa
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
 
-    const draw = () => {
+    const draw = (now: number) => {
       rafRef.current = requestAnimationFrame(draw);
-      t += 0.016;
+      if (document.hidden) return;
+      if (now - lastTime.current < 33) return; // ~30fps
+      lastTime.current = now;
+      t += 0.033;
 
       const W = canvas.width, H = canvas.height;
       const lv  = levelRef.current;
@@ -173,6 +178,7 @@ export function WalletGraphic({ level, pulse = true, className = "", style }: Wa
 
     rafRef.current = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(rafRef.current); ro.disconnect(); };
+
   }, []); // eslint-disable-line
 
   return (

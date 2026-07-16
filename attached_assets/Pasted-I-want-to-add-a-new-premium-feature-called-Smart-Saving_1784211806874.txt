@@ -1,0 +1,124 @@
+I want to add a new premium feature called **Smart Savings Wallet** to my existing financial website. **Do not redesign or rebuild the website.** Keep the current layout, colors, typography, navigation, responsiveness, and all existing features exactly as they are. Only add this new feature and make it blend perfectly with the current design.
+
+## Smart Savings Wallet
+
+Create a beautiful and interactive savings wallet using **HTML, CSS, and JavaScript** with smooth modern animations.
+
+### Income Detection
+
+Whenever a new income transaction is added to the user's account, display a button labeled:
+
+**"Add to My Wallet"**
+
+When the user clicks the button:
+
+* Open a modern popup/modal.
+* Allow the user to enter or select the amount they want to save.
+* After confirmation, immediately move that amount into the Savings Wallet.
+* Deduct the selected amount from the available balance and add it to the wallet balance.
+* Update all balances instantly with smooth counting animations.
+
+### Wallet Animation
+
+The wallet should visually grow and become more valuable as the user's savings increase.
+
+Level 1:
+
+* Small brown leather wallet.
+* Simple appearance.
+
+Level 2:
+
+* Wallet becomes larger.
+* Better texture.
+* Small gold details appear.
+
+Level 3:
+
+* Wallet becomes dark brown with shiny golden edges.
+* Gold coins begin appearing around it.
+
+Level 4:
+
+* Wallet transforms into a luxurious golden wallet.
+* Premium glow effect.
+* Floating sparkles.
+* Coin shine animation.
+* Soft breathing animation.
+
+The transition between levels should be smooth and animated instead of changing instantly.
+
+### Coin Animation
+
+Whenever money is added:
+
+* Gold coins should fall into the wallet.
+* Coins should bounce naturally.
+* Small sparkle particles should appear.
+* Display a floating success message such as:
+
+**"SAR 200 has been added to your Savings Wallet."**
+
+### Savings Goal
+
+Allow the user to set a savings goal.
+
+Display:
+
+* Current savings.
+* Goal amount.
+* Percentage completed.
+* Animated progress bar.
+
+When the goal reaches 100%:
+
+* Play a premium celebration animation.
+* Wallet glows brightly.
+* Golden particles appear.
+* Display:
+
+**"Congratulations! You reached your savings goal."**
+
+### Monthly Report
+
+At the end of every month automatically generate a savings summary showing:
+
+* Total income.
+* Total amount saved.
+* Saving percentage.
+* Number of saving actions.
+* Remaining balance.
+* Progress toward the goal.
+
+Display this information inside a beautiful dashboard card.
+
+### Smart Insights
+
+Generate intelligent suggestions based on saving behavior, for example:
+
+* "You're saving more than last month."
+* "If you continue this habit, you'll reach your goal in 2 months."
+* "Great job! Your savings rate increased by 15%."
+
+### Premium User Experience
+
+Use elegant micro-interactions throughout the feature.
+
+Include:
+
+* Smooth fade animations.
+* Hover effects.
+* Floating particles.
+* Soft shadows.
+* Glassmorphism where appropriate.
+* Responsive design.
+* Modern premium styling.
+
+### Technical Requirements
+
+* Use clean and modular HTML, CSS, and JavaScript.
+* Organize the code for easy integration with my existing project.
+* Make the feature ready for future backend and database integration.
+* Ensure excellent performance on desktop, tablet, and mobile devices.
+
+The feature should feel modern, interactive, luxurious, and unique, giving users the feeling that they are physically filling a real wallet every time they save money.

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
+import SmartCalculator from "@/components/SmartCalculator";
 import { Logo } from "@/components/Logo";
 import { WalletGraphic } from "@/components/WalletGraphic";
 import { CoinAnimation } from "@/components/CoinAnimation";
@@ -421,6 +422,15 @@ export default function SavingsPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* ── Smart Calculator ───────────────────────────────────────── */}
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-teal-600" />
+              الحاسبة المالية الذكية
+            </h2>
+            <SmartCalculator />
           </div>
 
           {/* ── Smart insights ─────────────────────────────────────────── */}

@@ -11,6 +11,7 @@ import reportsRouter from "./reports";
 import simulationRouter from "./simulation";
 import assistantRouter from "./assistant";
 import communityRouter from "./community";
+import calculatorRouter from "./calculator";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(reportsRouter);
 router.use(simulationRouter);
 router.use(assistantRouter);
 router.use(communityRouter);
+router.use("/calculator", calculatorRouter);
 
 export default router;

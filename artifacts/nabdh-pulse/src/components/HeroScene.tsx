@@ -453,8 +453,6 @@ export function HeroScene() {
       [
         { x: cx - 0.22 * scale, y: trunkTop - 0.05 * scale },
         { x: cx + 0.22 * scale, y: trunkTop - 0.05 * scale },
-        { x: cx - 0.35 * scale, y: trunkTop + 0.05 * scale },
-        { x: cx + 0.35 * scale, y: trunkTop + 0.05 * scale },
       ].forEach(p => drawLeafCluster(p.x, p.y, scale * 0.04));
 
       // ── Data panels ───────────────────────────────────────────────────────

@@ -15,6 +15,9 @@ export function Navbar() {
             <Link href="/" className="text-slate-600 hover:text-primary transition-colors">
               الرئيسية
             </Link>
+            <Link href="/savings" className="text-slate-600 hover:text-primary transition-colors font-semibold">
+              المحفظة الذكية
+            </Link>
             <a href="#problem" className="text-slate-600 hover:text-primary transition-colors">
               المشكلة
             </a>

@@ -19,7 +19,8 @@ import {
   Sparkles,
   Send,
   Zap,
-  Target
+  Target,
+  CircleDollarSign
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -47,17 +48,19 @@ export default function DashboardPage() {
         
         <nav className="flex-1 p-4 space-y-2">
           {[
-            { icon: Home, label: "الرئيسية", active: true },
-            { icon: Activity, label: "مؤشر النبض", active: false },
-            { icon: Wallet, label: "الميزانية", active: false },
-            { icon: Bell, label: "التنبيهات", active: false },
-            { icon: Zap, label: "المحاكاة", active: false },
-            { icon: Brain, label: "المساعد الذكي", active: false },
-            { icon: Users, label: "مجتمع نبض", active: false },
-            { icon: Settings, label: "الإعدادات", active: false }
+            { icon: Home,             label: "الرئيسية",       href: "/dashboard",   active: true  },
+            { icon: Activity,         label: "مؤشر النبض",     href: "/dashboard",   active: false },
+            { icon: Wallet,           label: "المحفظة الذكية", href: "/savings",     active: false },
+            { icon: Bell,             label: "التنبيهات",      href: "/dashboard",   active: false },
+            { icon: Zap,              label: "المحاكاة",       href: "/dashboard",   active: false },
+            { icon: CircleDollarSign, label: "الحاسبة الذكية", href: "/calculator",  active: false },
+            { icon: Brain,            label: "المساعد الذكي",  href: "/dashboard",   active: false },
+            { icon: Users,            label: "مجتمع نبض",      href: "/dashboard",   active: false },
+            { icon: Settings,         label: "الإعدادات",      href: "/dashboard",   active: false },
           ].map((item, idx) => (
-            <button
+            <Link
               key={idx}
+              href={item.href}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-semibold transition-all ${
                 item.active
                   ? 'bg-gradient-to-l from-primary to-secondary text-white shadow-lg'
@@ -66,7 +69,7 @@ export default function DashboardPage() {
             >
               <item.icon className="w-5 h-5" />
               <span>{item.label}</span>
-            </button>
+            </Link>
           ))}
         </nav>
 

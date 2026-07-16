@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,6 +33,93 @@ export interface Insight {
 
 const DEFAULT_GOAL = 5000;
 const DEFAULT_AVAILABLE = 7500;
+
+// ── Reminder preferences (localStorage-only, not synced to backend) ───────────
+const REMINDER_KEY        = "nabdh_reminder_prefs";
+const LAST_VISIT_KEY      = "nabdh_last_visit_month";
+const LAST_REMINDER_FIRED = "nabdh_last_reminder_fired"; // value: "YYYY-MM-DD-HH"
+
+export interface ReminderPrefs {
+  enabled: boolean;
+  dayOfWeek: number;  // 0=Sun … 6=Sat
+  hour: number;       // 0-23
+}
+
+const DEFAULT_REMINDER: ReminderPrefs = { enabled: false, dayOfWeek: 4, hour: 9 };
+
+export function loadReminderPrefs(): ReminderPrefs {
+  try {
+    const raw = localStorage.getItem(REMINDER_KEY);
+    if (raw) return { ...DEFAULT_REMINDER, ...JSON.parse(raw) };
+  } catch { /* ignore */ }
+  return { ...DEFAULT_REMINDER };
+}
+
+export function saveReminderPrefs(prefs: ReminderPrefs): void {
+  try { localStorage.setItem(REMINDER_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
+}
+
+/** Returns the previous month's YYYY-MM string if the user's last recorded visit
+ *  was in a different calendar month, and updates the stored month to now. */
+export function checkAndRecordVisit(): string | null {
+  const now = new Date();
+  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  try {
+    const stored = localStorage.getItem(LAST_VISIT_KEY);
+    localStorage.setItem(LAST_VISIT_KEY, current);
+    if (stored && stored !== current) return stored;
+  } catch { /* ignore */ }
+  return null;
+}
+
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (!("Notification" in window)) return "denied";
+  if (Notification.permission === "granted") return "granted";
+  return Notification.requestPermission();
+}
+
+/** Returns true if a reminder has already been fired for the current hour today. */
+export function hasReminderFiredThisPeriod(): boolean {
+  try {
+    const stored = localStorage.getItem(LAST_REMINDER_FIRED);
+    if (!stored) return false;
+    const now = new Date();
+    const key = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${now.getHours()}`;
+    return stored === key;
+  } catch { return false; }
+}
+
+/** Mark a reminder as fired for the current hour (dedup guard). */
+export function markReminderFired(): void {
+  try {
+    const now = new Date();
+    const key = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${now.getHours()}`;
+    localStorage.setItem(LAST_REMINDER_FIRED, key);
+  } catch { /* ignore */ }
+}
+
+export function fireReminderNotification(message: string): void {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  try {
+    new Notification("نبض | تذكير الادخار 🪙", {
+      body: message,
+      icon: "/favicon.ico",
+      dir: "rtl",
+      lang: "ar",
+    });
+  } catch { /* ignore */ }
+}
+
+/** Check right now whether the reminder should fire. Returns true and marks fired if it should. */
+export function checkReminderShouldFire(prefs: ReminderPrefs): boolean {
+  if (!prefs.enabled) return false;
+  const now = new Date();
+  if (now.getDay() !== prefs.dayOfWeek || now.getHours() !== prefs.hour) return false;
+  if (hasReminderFiredThisPeriod()) return false;
+  markReminderFired();
+  return true;
+}
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 // Session cookie is sent automatically by the browser — no auth header needed.

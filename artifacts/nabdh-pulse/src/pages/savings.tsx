@@ -5,10 +5,18 @@ import { WalletGraphic } from "@/components/WalletGraphic";
 import { CoinAnimation } from "@/components/CoinAnimation";
 import { useSavingsWallet } from "@/hooks/useSavingsWallet";
 import {
+  loadReminderPrefs, saveReminderPrefs, checkAndRecordVisit,
+  requestNotificationPermission, fireReminderNotification,
+  checkReminderShouldFire,
+  type ReminderPrefs,
+} from "@/hooks/useSavingsWallet";
+import {
   Home, Activity, Wallet, Bell, Brain, Users, Settings,
   TrendingUp, Target, Zap, Plus, X, Star, Trophy,
-  Sparkles, PiggyBank, ArrowDown
+  Sparkles, PiggyBank, ArrowDown, Clock, Calendar,
 } from "lucide-react";
+
+const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
 // ── Sample income transactions ────────────────────────────────────────────────
 const SAMPLE_TRANSACTIONS = [
@@ -82,7 +90,46 @@ export default function SavingsPage() {
   const report   = getMonthlyReport();
   const insights = getInsights();
 
-  // Detect goal completion
+  // ── Reminder prefs state ──────────────────────────────────────────────
+  const [reminderPrefs, setReminderPrefsState] = useState<ReminderPrefs>(loadReminderPrefs);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    () => (typeof window !== "undefined" && "Notification" in window ? Notification.permission : "denied")
+  );
+  const [showReminderSaved, setShowReminderSaved] = useState(false);
+
+  // ── End-of-month banner ───────────────────────────────────────────────
+  const [prevMonthBanner, setPrevMonthBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    const missed = checkAndRecordVisit();
+    if (missed) setPrevMonthBanner(missed);
+  }, []);
+
+  // ── In-session reminder scheduler (checks every minute while tab is open) ──
+  useEffect(() => {
+    const run = () => {
+      if (checkReminderShouldFire(reminderPrefs)) {
+        fireReminderNotification("وقت مراجعة مدخراتك! افتح محفظتك وأضف توفيرًا جديدًا 🪙");
+      }
+    };
+    run(); // immediate check on mount or prefs change
+    const id = setInterval(run, 60_000); // then every minute
+    return () => clearInterval(id);
+  }, [reminderPrefs]);
+
+  const handleSaveReminder = (prefs: ReminderPrefs) => {
+    saveReminderPrefs(prefs);
+    setReminderPrefsState(prefs);
+    setShowReminderSaved(true);
+    setTimeout(() => setShowReminderSaved(false), 3000);
+  };
+
+  const handleRequestNotif = async () => {
+    const perm = await requestNotificationPermission();
+    setNotifPermission(perm);
+  };
+
+  // ── Detect goal completion ────────────────────────────────────────────
   const prevPct = useRef(progressPct);
   useEffect(() => {
     if (prevPct.current < 100 && progressPct >= 100) {
@@ -161,6 +208,31 @@ export default function SavingsPage() {
       {/* ── Main content ─────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto p-6 space-y-6">
+
+          {/* ── End-of-month banner ──────────────────────────────────── */}
+          {prevMonthBanner && (
+            <div className="bg-gradient-to-l from-indigo-600 to-primary text-white rounded-2xl p-5 shadow-xl flex items-start gap-4 relative">
+              <button
+                onClick={() => setPrevMonthBanner(null)}
+                className="absolute top-3 left-3 text-white/60 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="text-3xl">📊</div>
+              <div>
+                <p className="font-black text-lg">شهر جديد — راجع مدخراتك!</p>
+                <p className="text-white/80 text-sm mt-1">
+                  انتهى شهر {prevMonthBanner}. شهر جديد، فرصة جديدة للادخار. راجع تقريرك الشهري وضع هدفك لهذا الشهر.
+                </p>
+                <button
+                  onClick={() => { setPrevMonthBanner(null); document.getElementById("monthly-report")?.scrollIntoView({ behavior: "smooth" }); }}
+                  className="mt-2 px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-bold transition-colors"
+                >
+                  عرض التقرير ↓
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Header */}
           <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
@@ -317,6 +389,7 @@ export default function SavingsPage() {
 
           {/* ── Monthly report ─────────────────────────────────────────── */}
           <div
+            id="monthly-report"
             className="rounded-2xl p-6 shadow-xl border border-white/20"
             style={{
               background: "rgba(15,23,42,0.85)",
@@ -391,6 +464,106 @@ export default function SavingsPage() {
               </div>
             </div>
           )}
+
+          {/* ── Reminder settings ──────────────────────────────────────── */}
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <h2 className="text-xl font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" />
+              تذكيرات الادخار
+            </h2>
+            <p className="text-slate-500 text-sm mb-5">احصل على تنبيه أسبوعي يذكّرك بالادخار في وقتك المفضل.</p>
+
+            {/* Enable toggle */}
+            <div className="flex items-center justify-between mb-5 bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <div>
+                <p className="font-semibold text-slate-800">تفعيل التذكيرات</p>
+                <p className="text-xs text-slate-500 mt-0.5">تذكير أسبوعي في اليوم والوقت المختار</p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={reminderPrefs.enabled}
+                onClick={() => handleSaveReminder({ ...reminderPrefs, enabled: !reminderPrefs.enabled })}
+                className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${reminderPrefs.enabled ? "bg-primary" : "bg-slate-300"}`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200 ${reminderPrefs.enabled ? "right-0.5" : "left-0.5"}`} />
+              </button>
+            </div>
+
+            {/* Day + Time pickers */}
+            <div className={`grid grid-cols-2 gap-4 mb-5 transition-opacity ${reminderPrefs.enabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                  <Calendar className="w-4 h-4" /> يوم التذكير
+                </label>
+                <select
+                  value={reminderPrefs.dayOfWeek}
+                  onChange={e => setReminderPrefsState(p => ({ ...p, dayOfWeek: Number(e.target.value) }))}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-semibold focus:border-primary focus:outline-none bg-white"
+                >
+                  {DAY_NAMES.map((name, i) => (
+                    <option key={i} value={i}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                  <Clock className="w-4 h-4" /> وقت التذكير
+                </label>
+                <select
+                  value={reminderPrefs.hour}
+                  onChange={e => setReminderPrefsState(p => ({ ...p, hour: Number(e.target.value) }))}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-semibold focus:border-primary focus:outline-none bg-white"
+                >
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {String(h).padStart(2, "0")}:00
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Notification permission */}
+            <div className="mb-5">
+              {notifPermission === "granted" ? (
+                <div className="flex items-center gap-2 text-secondary text-sm font-semibold bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                  <Bell className="w-4 h-4" />
+                  إشعارات المتصفح مفعّلة ✓
+                </div>
+              ) : notifPermission === "denied" ? (
+                <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                  ⚠️ الإشعارات محجوبة في المتصفح. يرجى السماح بها من إعدادات المتصفح لتلقي التنبيهات.
+                </div>
+              ) : (
+                <button
+                  onClick={handleRequestNotif}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-primary/30 text-primary rounded-xl font-semibold text-sm hover:bg-primary hover:text-white transition-all"
+                >
+                  <Bell className="w-4 h-4" />
+                  السماح بإشعارات المتصفح
+                </button>
+              )}
+            </div>
+
+            {/* Save button */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleSaveReminder(reminderPrefs)}
+                className="flex-1 py-3 bg-gradient-to-l from-primary to-secondary text-white rounded-xl font-bold hover:shadow-lg transition-all"
+              >
+                حفظ إعدادات التذكير
+              </button>
+              {showReminderSaved && (
+                <div className="text-secondary font-bold text-sm flex items-center gap-1" style={{ animation: "fadeInUp 0.3s ease-out" }}>
+                  ✓ تم الحفظ
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-400 mt-3 text-center">
+              التذكير يظهر عند زيارة الموقع في اليوم والوقت المحدد وكإشعار متصفح إن أتحت الصلاحية.
+            </p>
+          </div>
 
         </div>
       </main>

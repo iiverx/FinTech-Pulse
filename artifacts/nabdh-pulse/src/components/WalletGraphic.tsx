@@ -8,26 +8,66 @@ interface WalletGraphicProps {
 }
 
 interface Palette {
-  bg0: string; bg1: string; bg2: string;
-  accent: string; glow: string; ring: string;
-  particle: string; name: string;
+  body1: string; body2: string; body3: string;
+  fold1: string; fold2: string;
+  hw1: string;   hw2: string;           // hardware (clasp) colors
+  stitch: string;
+  glow: string | null;
+  cardA: string; cardB: string;
+  billColor: string;
+  name: string;
 }
 
 const PALETTES: Record<1|2|3|4, Palette> = {
-  1: { bg0:"#0F172A", bg1:"#1E3A5F", bg2:"#1E40AF",   accent:"#60A5FA", glow:"rgba(96,165,250,0.55)",  ring:"#3B82F6", particle:"#93C5FD", name:"مبتدئة" },
-  2: { bg0:"#1A0533", bg1:"#4C1D95", bg2:"#7C3AED",   accent:"#A78BFA", glow:"rgba(167,139,250,0.55)", ring:"#8B5CF6", particle:"#C4B5FD", name:"نشطة"   },
-  3: { bg0:"#052E16", bg1:"#065F46", bg2:"#059669",   accent:"#34D399", glow:"rgba(52,211,153,0.55)",  ring:"#10B981", particle:"#6EE7B7", name:"ذهبية"   },
-  4: { bg0:"#1C1100", bg1:"#78350F", bg2:"#D97706",   accent:"#FCD34D", glow:"rgba(252,211,77,0.7)",   ring:"#F59E0B", particle:"#FDE68A", name:"فاخرة"   },
+  1: {
+    body1:"#1E293B", body2:"#0F172A", body3:"#020617",
+    fold1:"#334155", fold2:"#1E293B",
+    hw1:"#94A3B8",   hw2:"#64748B",
+    stitch:"#475569",
+    glow: null,
+    cardA:"#1D4ED8", cardB:"#0EA5E9",
+    billColor:"#16A34A",
+    name:"كلاسيكية",
+  },
+  2: {
+    body1:"#581C87", body2:"#3B0764", body3:"#1E0035",
+    fold1:"#7C3AED", fold2:"#581C87",
+    hw1:"#C4B5FD",   hw2:"#8B5CF6",
+    stitch:"#6D28D9",
+    glow:"rgba(167,139,250,0.4)",
+    cardA:"#7C3AED", cardB:"#A78BFA",
+    billColor:"#7C3AED",
+    name:"بريميوم",
+  },
+  3: {
+    body1:"#14532D", body2:"#052E16", body3:"#022C17",
+    fold1:"#166534", fold2:"#14532D",
+    hw1:"#4ADE80",   hw2:"#16A34A",
+    stitch:"#15803D",
+    glow:"rgba(74,222,128,0.35)",
+    cardA:"#059669", cardB:"#34D399",
+    billColor:"#15803D",
+    name:"إيليت",
+  },
+  4: {
+    body1:"#92400E", body2:"#78350F", body3:"#451A03",
+    fold1:"#B45309", fold2:"#92400E",
+    hw1:"#FCD34D",   hw2:"#F59E0B",
+    stitch:"#D97706",
+    glow:"rgba(252,211,77,0.6)",
+    cardA:"#D97706", cardB:"#FCD34D",
+    billColor:"#CA8A04",
+    name:"فاخرة ✦",
+  },
 };
 
-// Particle type
-interface Particle { x:number; y:number; vx:number; vy:number; r:number; a:number; va:number; }
+interface Particle { x:number; y:number; vx:number; vy:number; r:number; a:number; phase:number; }
 
 export function WalletGraphic({ level, pulse = true, className = "", style }: WalletGraphicProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef    = useRef<number>(0);
   const levelRef  = useRef(level);
-  const particles = useRef<Particle[]>([]);
+  const coins     = useRef<Particle[]>([]);
 
   useEffect(() => { levelRef.current = level; }, [level]);
 
@@ -39,18 +79,19 @@ export function WalletGraphic({ level, pulse = true, className = "", style }: Wa
     const resize = () => {
       canvas.width  = canvas.offsetWidth  * devicePixelRatio;
       canvas.height = canvas.offsetHeight * devicePixelRatio;
-      spawnParticles();
+      spawnCoins();
     };
 
-    function spawnParticles() {
+    function spawnCoins() {
       const W = canvas.width, H = canvas.height;
-      particles.current = Array.from({ length: 28 }, () => ({
-        x: Math.random() * W, y: Math.random() * H,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        r: Math.random() * 2.5 + 0.8,
-        a: Math.random(),
-        va: (Math.random() - 0.5) * 0.012,
+      coins.current = Array.from({ length: 10 }, (_, i) => ({
+        x: W * (0.1 + Math.random() * 0.8),
+        y: H * (0.1 + Math.random() * 0.8),
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        r: Math.min(W, H) * (0.025 + Math.random() * 0.02),
+        a: Math.random() * Math.PI * 2,
+        phase: Math.random() * Math.PI * 2,
       }));
     }
 
@@ -63,109 +104,65 @@ export function WalletGraphic({ level, pulse = true, className = "", style }: Wa
       t += 0.016;
 
       const W = canvas.width, H = canvas.height;
-      const pal = PALETTES[levelRef.current];
+      const lv  = levelRef.current;
+      const pal = PALETTES[lv];
 
       ctx.clearRect(0, 0, W, H);
 
-      // ── Background mesh gradient ─────────────────────────────────────
-      const bgG = ctx.createLinearGradient(0, 0, W, H);
-      bgG.addColorStop(0, pal.bg0);
-      bgG.addColorStop(0.5, pal.bg1);
-      bgG.addColorStop(1, pal.bg2);
-      roundRectPath(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
-      ctx.fillStyle = bgG;
-      ctx.fill();
+      const cx = W * 0.5;
+      const cy = H * 0.5;
+      const sc = Math.min(W, H);
 
-      // ── Radial accent orb (top-left) ─────────────────────────────────
-      const orbR = W * 0.55 + Math.sin(t * 0.7) * W * 0.04;
-      const orbG = ctx.createRadialGradient(W * 0.15, H * 0.2, 0, W * 0.15, H * 0.2, orbR);
-      orbG.addColorStop(0, pal.bg2 + "88");
-      orbG.addColorStop(1, "transparent");
-      ctx.fillStyle = orbG;
-      ctx.fillRect(0, 0, W, H);
+      // Breathe
+      const breathe = pulse ? 1 + Math.sin(t * 1.1) * 0.012 : 1;
 
-      // ── Second orb (bottom-right) ────────────────────────────────────
-      const orb2G = ctx.createRadialGradient(W * 0.85, H * 0.82, 0, W * 0.85, H * 0.82, W * 0.45);
-      orb2G.addColorStop(0, pal.accent + "44");
-      orb2G.addColorStop(1, "transparent");
-      ctx.fillStyle = orb2G;
-      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(breathe, breathe);
 
-      // ── Grid / circuit lines ─────────────────────────────────────────
-      drawGrid(ctx, W, H, pal, t, levelRef.current);
-
-      // ── Particles ────────────────────────────────────────────────────
-      for (const p of particles.current) {
-        p.x += p.vx; p.y += p.vy;
-        p.a += p.va;
-        if (p.a < 0) p.a = 0.8;
-        if (p.a > 1) p.a = 0.2;
-        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
-        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = pal.particle + Math.round(p.a * 255).toString(16).padStart(2, "0");
-        ctx.fill();
+      // Outer glow (level 2+)
+      if (pal.glow) {
+        const glowG = ctx.createRadialGradient(0, 0, sc * 0.1, 0, 0, sc * 0.7);
+        glowG.addColorStop(0, pal.glow);
+        glowG.addColorStop(1, "transparent");
+        ctx.fillStyle = glowG;
+        ctx.fillRect(-W / 2, -H / 2, W, H);
       }
 
-      // ── Card body (subtle 3D tilt) ───────────────────────────────────
-      const tiltX = pulse ? Math.sin(t * 0.8) * 0.012 : 0;
-      const tiltY = pulse ? Math.cos(t * 0.6) * 0.008 : 0;
-      ctx.save();
-      ctx.transform(1, tiltY, tiltX, 1, 0, 0);
+      // ── Draw the wallet ───────────────────────────────────────────────
+      drawWallet(ctx, W, H, sc, pal, lv, t);
 
-      // Glow border
-      ctx.save();
-      ctx.shadowColor = pal.glow;
-      ctx.shadowBlur  = Math.min(W, H) * (0.06 + Math.sin(t * 1.2) * 0.02);
-      roundRectPath(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
-      ctx.strokeStyle = pal.accent + "99";
-      ctx.lineWidth   = 1.5 * devicePixelRatio;
-      ctx.stroke();
-      ctx.restore();
+      // ── Floating coins (level 3+) ─────────────────────────────────────
+      if (lv >= 3) {
+        for (const c of coins.current) {
+          c.x += c.vx;
+          c.y += c.vy;
+          const hw = W / 2, hh = H / 2;
+          if (c.x - hw < -sc * 0.55 || c.x - hw > sc * 0.55) c.vx *= -1;
+          if (c.y - hh < -sc * 0.55 || c.y - hh > sc * 0.55) c.vy *= -1;
+          c.a += 0.025;
+          const flip = Math.cos(c.a);
+          const visR = Math.abs(flip);
+          if (visR > 0.05) {
+            drawCoin(ctx, c.x - hw, c.y - hh, c.r, visR, pal, t + c.phase, lv);
+          }
+        }
+      }
 
-      // ── Holographic shimmer band ──────────────────────────────────────
-      const shimPos = ((t * 0.28) % 1.6) - 0.3;
-      const shimX   = shimPos * W;
-      const shimW   = W * 0.25;
-      const shimG   = ctx.createLinearGradient(shimX - shimW, 0, shimX + shimW, 0);
-      shimG.addColorStop(0,   "transparent");
-      shimG.addColorStop(0.4, pal.accent + "22");
-      shimG.addColorStop(0.5, pal.accent + "55");
-      shimG.addColorStop(0.6, pal.accent + "22");
-      shimG.addColorStop(1,   "transparent");
-      roundRectPath(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
-      ctx.fillStyle = shimG;
-      ctx.fill();
-
-      // ── Top-left: logo chip area ──────────────────────────────────────
-      const chipS = Math.min(W, H) * 0.14;
-      const chipX = W * 0.07, chipY = H * 0.12;
-      drawChip(ctx, chipX, chipY, chipS, pal);
-
-      // ── Circular progress ring ────────────────────────────────────────
-      const ringR  = Math.min(W, H) * 0.16;
-      const ringX  = W * 0.78, ringY = H * 0.38;
-      const pct    = levelRef.current / 4;
-      drawProgressRing(ctx, ringX, ringY, ringR, pct, pal, t);
-
-      // ── Wave line (EKG / pulse) ───────────────────────────────────────
-      drawPulseLine(ctx, W, H, pal, t);
-
-      // ── Level badge ───────────────────────────────────────────────────
-      const badgeX = W * 0.07, badgeY = H * 0.68;
-      ctx.font      = `bold ${H * 0.1}px "Tajawal", Arial`;
-      ctx.fillStyle = pal.accent;
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.shadowColor  = pal.glow;
-      ctx.shadowBlur   = 12;
-      ctx.fillText(`المستوى ${levelRef.current}`, badgeX, badgeY);
-      ctx.shadowBlur = 0;
-      ctx.textBaseline = "alphabetic";
-
-      // ── Dots row (like card number placeholder) ───────────────────────
-      drawDotRow(ctx, W * 0.07, H * 0.82, W, H, pal);
+      // Sparkles (level 4)
+      if (lv === 4) {
+        for (let i = 0; i < 6; i++) {
+          const ang  = (i / 6) * Math.PI * 2 + t * 0.5;
+          const dist = sc * (0.38 + 0.08 * Math.sin(t * 1.5 + i));
+          const sx   = Math.cos(ang) * dist;
+          const sy   = Math.sin(ang) * dist * 0.6;
+          const alpha = 0.4 + 0.5 * Math.sin(t * 2.5 + i);
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          drawSparkle(ctx, sx, sy, sc * 0.022, pal.hw1);
+          ctx.restore();
+        }
+      }
 
       ctx.restore();
     };
@@ -178,14 +175,335 @@ export function WalletGraphic({ level, pulse = true, className = "", style }: Wa
     <canvas
       ref={canvasRef}
       className={`w-full h-full ${className}`}
-      style={{ display: "block", borderRadius: "1rem", ...style }}
+      style={{ display: "block", ...style }}
     />
   );
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//  WALLET DRAWING
+// ─────────────────────────────────────────────────────────────────────────────
 
-function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+function drawWallet(
+  ctx: CanvasRenderingContext2D,
+  W: number, H: number, sc: number,
+  pal: Palette, level: number, t: number,
+) {
+  // Wallet dimensions (centered at 0,0)
+  const wW = sc * 0.88;
+  const wH = sc * 0.60;
+  const rr = sc * 0.065;       // corner radius
+  const thick = sc * 0.038;    // 3D thickness offset
+
+  // ── Shadow ──────────────────────────────────────────────────────────────
+  ctx.save();
+  ctx.shadowColor   = "rgba(0,0,0,0.45)";
+  ctx.shadowBlur    = sc * 0.09;
+  ctx.shadowOffsetX = thick * 0.6;
+  ctx.shadowOffsetY = sc * 0.06;
+  rRect(ctx, -wW / 2, -wH / 2, wW, wH, rr);
+  ctx.fillStyle = "#000";
+  ctx.fill();
+  ctx.restore();
+
+  // ── Back panel (slightly offset to give 3D depth) ──────────────────────
+  const bOff = thick;  // how much the back shifts
+  ctx.save();
+  rRect(ctx, -wW / 2 + bOff, -wH / 2 - bOff, wW, wH, rr);
+  const backG = ctx.createLinearGradient(-wW / 2, -wH / 2, wW / 2, wH / 2);
+  backG.addColorStop(0, pal.body2);
+  backG.addColorStop(1, pal.body3);
+  ctx.fillStyle = backG;
+  ctx.fill();
+
+  // Back panel edge stroke
+  ctx.strokeStyle = pal.stitch + "88";
+  ctx.lineWidth   = sc * 0.008;
+  ctx.stroke();
+
+  // Bills peeking from the top of back panel
+  drawBills(ctx, -wW / 2 + bOff, -wH / 2 - bOff - sc * 0.06, wW, sc, pal, t);
+
+  ctx.restore();
+
+  // ── Front panel (main face) ─────────────────────────────────────────────
+  rRect(ctx, -wW / 2, -wH / 2, wW, wH, rr);
+  const frontG = ctx.createLinearGradient(-wW / 2, -wH / 2, wW * 0.4, wH * 0.6);
+  frontG.addColorStop(0, pal.body1);
+  frontG.addColorStop(0.55, pal.body2);
+  frontG.addColorStop(1, pal.body3);
+  ctx.fillStyle = frontG;
+  ctx.fill();
+
+  // Front edge highlight (top-left rim light)
+  ctx.save();
+  const rimG = ctx.createLinearGradient(-wW / 2, -wH / 2, -wW / 2 + wW * 0.3, -wH / 2 + wH * 0.25);
+  rimG.addColorStop(0, "rgba(255,255,255,0.18)");
+  rimG.addColorStop(1, "rgba(255,255,255,0)");
+  rRect(ctx, -wW / 2, -wH / 2, wW, wH, rr);
+  ctx.fillStyle = rimG;
+  ctx.fill();
+  ctx.restore();
+
+  // Leather texture (crosshatch)
+  drawLeatherTexture(ctx, -wW / 2, -wH / 2, wW, wH, rr, sc, pal);
+
+  // Stitch border
+  ctx.save();
+  const sp = sc * 0.038;
+  rRect(ctx, -wW / 2 + sp, -wH / 2 + sp, wW - sp * 2, wH - sp * 2, rr * 0.55);
+  ctx.strokeStyle = pal.stitch + "55";
+  ctx.lineWidth   = sc * 0.007;
+  ctx.setLineDash([sc * 0.025, sc * 0.02]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Outer border
+  rRect(ctx, -wW / 2, -wH / 2, wW, wH, rr);
+  ctx.strokeStyle = pal.stitch + "66";
+  ctx.lineWidth   = sc * 0.009;
+  if (level === 4) {
+    ctx.shadowColor = pal.hw1;
+    ctx.shadowBlur  = sc * 0.06;
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // ── Fold crease (horizontal center line) ──────────────────────────────
+  ctx.beginPath();
+  ctx.moveTo(-wW / 2 + sc * 0.05, 0);
+  ctx.lineTo(wW / 2 - sc * 0.05, 0);
+  ctx.strokeStyle = pal.body3 + "cc";
+  ctx.lineWidth   = sc * 0.012;
+  ctx.stroke();
+
+  // ── Cards peeking from top ────────────────────────────────────────────
+  drawCards(ctx, -wW / 2, -wH / 2, wW, wH, sc, pal, level, rr);
+
+  // ── Card slot panels on lower half ───────────────────────────────────
+  drawCardSlots(ctx, -wW / 2, 0, wW, wH / 2, sc, pal, level, rr);
+
+  // ── Snap clasp (center) ───────────────────────────────────────────────
+  drawClasp(ctx, 0, 0, sc, pal, level, t);
+
+  // ── Level shimmer sweep (level 4) ────────────────────────────────────
+  if (level === 4) {
+    const sx = ((t * 0.35 % 2) - 0.5) * wW;
+    const sgW = wW * 0.22;
+    const shimG = ctx.createLinearGradient(sx - sgW, 0, sx + sgW, 0);
+    shimG.addColorStop(0, "transparent");
+    shimG.addColorStop(0.5, "rgba(255,235,150,0.22)");
+    shimG.addColorStop(1, "transparent");
+    rRect(ctx, -wW / 2, -wH / 2, wW, wH, rr);
+    ctx.fillStyle = shimG;
+    ctx.fill();
+  }
+}
+
+// ── Bills peeking from top of back panel ──────────────────────────────────────
+function drawBills(
+  ctx: CanvasRenderingContext2D,
+  bx: number, by: number, bw: number,
+  sc: number, pal: Palette, t: number
+) {
+  const billH = sc * 0.072;
+  const billW = bw * 0.55;
+  const startX = bx + bw * 0.22;
+  const colors = [pal.billColor + "cc", pal.billColor + "99", pal.billColor + "66"];
+  const offsets = [sc * 0.01 * Math.sin(t * 0.9), 0, sc * 0.008 * Math.cos(t * 1.1)];
+
+  for (let i = colors.length - 1; i >= 0; i--) {
+    const xOff = (i - 1) * sc * 0.018 + offsets[i];
+    rRect(ctx, startX + xOff, by - billH + sc * 0.012 * i, billW, billH, sc * 0.015);
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth   = sc * 0.006;
+    ctx.stroke();
+    // Bill line details
+    ctx.beginPath();
+    ctx.moveTo(startX + xOff + billW * 0.12, by - billH * 0.45 + sc * 0.012 * i);
+    ctx.lineTo(startX + xOff + billW * 0.85, by - billH * 0.45 + sc * 0.012 * i);
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth   = sc * 0.005;
+    ctx.stroke();
+  }
+}
+
+// ── Cards peeking from top of front panel ────────────────────────────────────
+function drawCards(
+  ctx: CanvasRenderingContext2D,
+  bx: number, by: number, bw: number, _bh: number,
+  sc: number, pal: Palette, level: number, rr: number
+) {
+  if (level < 1) return;
+  const cW = bw * 0.42;
+  const cH = sc * 0.055;
+  const cY = by - cH * 0.5;
+  const cX = bx + bw * 0.08;
+
+  // Card 2 (behind)
+  if (level >= 2) {
+    rRect(ctx, cX + sc * 0.025, cY + sc * 0.008, cW, cH, rr * 0.35);
+    const c2G = ctx.createLinearGradient(cX, 0, cX + cW, 0);
+    c2G.addColorStop(0, "#334155");
+    c2G.addColorStop(1, "#1E293B");
+    ctx.fillStyle = c2G;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.lineWidth   = sc * 0.005;
+    ctx.stroke();
+  }
+
+  // Card 1 (front)
+  rRect(ctx, cX, cY, cW, cH, rr * 0.35);
+  const c1G = ctx.createLinearGradient(cX, cY, cX + cW, cY + cH);
+  c1G.addColorStop(0, pal.cardA);
+  c1G.addColorStop(1, pal.cardB);
+  ctx.fillStyle = c1G;
+  ctx.fill();
+  // Card chip
+  rRect(ctx, cX + cW * 0.1, cY + cH * 0.22, cW * 0.2, cH * 0.5, sc * 0.008);
+  ctx.fillStyle = "rgba(255,220,100,0.6)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.lineWidth   = sc * 0.005;
+  ctx.stroke();
+}
+
+// ── Card slot panels on lower half ───────────────────────────────────────────
+function drawCardSlots(
+  ctx: CanvasRenderingContext2D,
+  bx: number, by: number, bw: number, bh: number,
+  sc: number, pal: Palette, _level: number, rr: number
+) {
+  const pad  = sc * 0.05;
+  const sH   = bh * 0.48;
+  const sW   = bw * 0.42;
+
+  // Left slot
+  rRect(ctx, bx + pad, by + pad, sW, sH, rr * 0.4);
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fill();
+  ctx.strokeStyle = pal.stitch + "44";
+  ctx.lineWidth   = sc * 0.007;
+  ctx.stroke();
+
+  // Right slot
+  rRect(ctx, bx + bw - pad - sW, by + pad, sW, sH, rr * 0.4);
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.fill();
+  ctx.stroke();
+}
+
+// ── Leather texture ───────────────────────────────────────────────────────────
+function drawLeatherTexture(
+  ctx: CanvasRenderingContext2D,
+  bx: number, by: number, bw: number, bh: number,
+  rr: number, sc: number, pal: Palette
+) {
+  ctx.save();
+  rRect(ctx, bx, by, bw, bh, rr);
+  ctx.clip();
+  ctx.globalAlpha = 0.045;
+  ctx.strokeStyle = pal.stitch;
+  ctx.lineWidth   = sc * 0.005;
+  const step = sc * 0.055;
+  for (let x = bx; x < bx + bw + step; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x - bh * 0.5, by + bh); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ── Snap clasp ────────────────────────────────────────────────────────────────
+function drawClasp(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, sc: number,
+  pal: Palette, level: number, t: number
+) {
+  const outerR = sc * 0.042;
+  const innerR = sc * 0.025;
+
+  // Outer ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+  const oG = ctx.createRadialGradient(cx - outerR * 0.3, cy - outerR * 0.3, 0, cx, cy, outerR);
+  oG.addColorStop(0, pal.hw1);
+  oG.addColorStop(1, pal.hw2);
+  ctx.fillStyle = oG;
+  if (level >= 3) {
+    ctx.shadowColor = pal.hw1;
+    ctx.shadowBlur  = sc * 0.04 + Math.sin(t * 2) * sc * 0.015;
+  }
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = pal.hw1 + "88";
+  ctx.lineWidth   = sc * 0.01;
+  ctx.stroke();
+
+  // Inner button
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  const iG = ctx.createRadialGradient(cx - innerR * 0.35, cy - innerR * 0.35, 0, cx, cy, innerR);
+  iG.addColorStop(0, "rgba(255,255,255,0.5)");
+  iG.addColorStop(1, pal.hw2 + "dd");
+  ctx.fillStyle = iG;
+  ctx.fill();
+}
+
+// ── Coin ─────────────────────────────────────────────────────────────────────
+function drawCoin(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+  r: number, flipFactor: number,
+  pal: Palette, t: number, _level: number
+) {
+  const ry = r * flipFactor;
+  const coinG = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.25, 0, cx, cy, r);
+  coinG.addColorStop(0, "#FFF8D0");
+  coinG.addColorStop(0.4, "#FFD700");
+  coinG.addColorStop(1, "#A07800");
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, r, Math.max(ry, 1), 0, 0, Math.PI * 2);
+  ctx.fillStyle = coinG;
+  ctx.shadowColor = "rgba(0,0,0,0.3)";
+  ctx.shadowBlur  = r * 0.4;
+  ctx.fill();
+  ctx.shadowBlur  = 0;
+  ctx.strokeStyle = "#C8A000cc";
+  ctx.lineWidth   = r * 0.07;
+  ctx.stroke();
+  // ر symbol (riyal sign area)
+  if (ry > r * 0.3) {
+    ctx.font         = `bold ${r * 0.85}px "Tajawal", Arial`;
+    ctx.fillStyle    = "#8A6800";
+    ctx.textAlign    = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("ر", cx, cy + r * 0.05);
+    ctx.textBaseline = "alphabetic";
+  }
+}
+
+// ── Sparkle ───────────────────────────────────────────────────────────────────
+function drawSparkle(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string) {
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * r * 2.5, cy + Math.sin(a) * r * 2.5);
+    ctx.lineTo(cx + Math.cos(a + Math.PI) * r * 2.5, cy + Math.sin(a + Math.PI) * r * 2.5);
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = r * 0.5;
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.7, 0, Math.PI * 2);
+  ctx.fillStyle = "#FFF8D0";
+  ctx.fill();
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function rRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
@@ -197,142 +515,4 @@ function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
   ctx.lineTo(x, y + r);
   ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
-}
-
-function drawGrid(ctx: CanvasRenderingContext2D, W: number, H: number, pal: Palette, t: number, level: number) {
-  if (level < 2) return;
-  const step = W * 0.12;
-  ctx.save();
-  ctx.globalAlpha = 0.12 + 0.04 * Math.sin(t * 0.5);
-  ctx.strokeStyle = pal.accent;
-  ctx.lineWidth   = 0.5 * devicePixelRatio;
-
-  // Vertical lines
-  for (let x = 0; x < W; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-  }
-  // Horizontal lines
-  for (let y = 0; y < H; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
-
-  // Circuit nodes at intersections (level 3+)
-  if (level >= 3) {
-    ctx.globalAlpha = 0.25;
-    ctx.fillStyle = pal.particle;
-    for (let x = step; x < W; x += step * 2) {
-      for (let y = step; y < H; y += step * 2) {
-        ctx.beginPath();
-        ctx.arc(x, y, 2 * devicePixelRatio, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-  ctx.restore();
-}
-
-function drawChip(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, pal: Palette) {
-  // SIM chip look
-  const chipG = ctx.createLinearGradient(x, y, x + s, y + s * 0.7);
-  chipG.addColorStop(0, pal.accent + "cc");
-  chipG.addColorStop(1, pal.ring + "66");
-  roundRectPath(ctx, x, y, s, s * 0.7, s * 0.1);
-  ctx.fillStyle = chipG;
-  ctx.fill();
-
-  // Chip grooves
-  ctx.strokeStyle = pal.bg0 + "99";
-  ctx.lineWidth   = s * 0.07;
-  // Vertical center
-  ctx.beginPath(); ctx.moveTo(x + s * 0.5, y + s * 0.08); ctx.lineTo(x + s * 0.5, y + s * 0.62); ctx.stroke();
-  // Horizontal middle
-  ctx.beginPath(); ctx.moveTo(x + s * 0.1, y + s * 0.35); ctx.lineTo(x + s * 0.9, y + s * 0.35); ctx.stroke();
-}
-
-function drawProgressRing(
-  ctx: CanvasRenderingContext2D, cx: number, cy: number,
-  r: number, pct: number, pal: Palette, t: number
-) {
-  const start = -Math.PI / 2;
-  const end   = start + Math.PI * 2 * pct;
-
-  // Track
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.strokeStyle = pal.accent + "22";
-  ctx.lineWidth   = r * 0.18;
-  ctx.stroke();
-
-  // Fill
-  ctx.save();
-  ctx.shadowColor = pal.glow;
-  ctx.shadowBlur  = r * 0.5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, start, end);
-  ctx.strokeStyle = pal.ring;
-  ctx.lineWidth   = r * 0.18;
-  ctx.lineCap     = "round";
-  ctx.stroke();
-  ctx.restore();
-
-  // Dot at tip
-  const tipX = cx + Math.cos(end) * r;
-  const tipY = cy + Math.sin(end) * r;
-  ctx.beginPath();
-  ctx.arc(tipX, tipY, r * 0.14, 0, Math.PI * 2);
-  ctx.fillStyle = pal.accent;
-  ctx.fill();
-
-  // Center icon
-  const pulse = 1 + Math.sin(t * 2) * 0.08;
-  ctx.font      = `bold ${r * 0.55 * pulse}px Arial`;
-  ctx.fillStyle = pal.accent;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.shadowColor  = pal.glow;
-  ctx.shadowBlur   = 10;
-  ctx.fillText("◈", cx, cy);
-  ctx.shadowBlur = 0;
-  ctx.textBaseline = "alphabetic";
-}
-
-function drawPulseLine(ctx: CanvasRenderingContext2D, W: number, H: number, pal: Palette, t: number) {
-  const y0 = H * 0.55;
-  const amp = H * 0.06;
-  const freq = W * 0.018;
-
-  ctx.save();
-  ctx.shadowColor = pal.glow;
-  ctx.shadowBlur  = 8;
-  ctx.strokeStyle = pal.accent + "bb";
-  ctx.lineWidth   = 1.2 * devicePixelRatio;
-  ctx.beginPath();
-
-  for (let x = 0; x <= W * 0.65; x += 2) {
-    const phase = x / freq - t * 3;
-    // EKG-style: mostly flat with sharp spike
-    let dy = 0;
-    const mod = ((phase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-    if (mod > 1.5 && mod < 2.5) {
-      dy = -amp * 2.5 * Math.sin((mod - 1.5) * Math.PI);
-    } else if (mod > 2.5 && mod < 3.2) {
-      dy = amp * 1.2 * Math.sin((mod - 2.5) * Math.PI / 0.7);
-    } else {
-      dy = amp * 0.15 * Math.sin(phase * 0.5);
-    }
-    if (x === 0) ctx.moveTo(x, y0 + dy);
-    else ctx.lineTo(x, y0 + dy);
-  }
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawDotRow(ctx: CanvasRenderingContext2D, x: number, y: number, W: number, H: number, pal: Palette) {
-  const r = H * 0.022, gap = H * 0.065;
-  for (let i = 0; i < 12; i++) {
-    ctx.beginPath();
-    ctx.arc(x + i * gap, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = i < 4 ? pal.accent + "dd" : pal.accent + "44";
-    ctx.fill();
-  }
 }

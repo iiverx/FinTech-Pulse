@@ -81,7 +81,7 @@ export default function SmartCalculator() {
     setError(false);
 
     try {
-      const res = await fetch("/api-server/api/calculator/extract", {
+      const res = await fetch("/api/calculator/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentState: financialState, input: text }),

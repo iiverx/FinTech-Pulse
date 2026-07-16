@@ -2,15 +2,22 @@ import React, { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { Link, useLocation } from "wouter";
 import { Mail, Lock, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
+  const { login, isLoggingIn, loginError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLocation("/dashboard");
+    try {
+      await login({ email, password });
+      setLocation("/dashboard");
+    } catch {
+      // error shown via loginError
+    }
   };
 
   return (
@@ -30,12 +37,12 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
-                البريد الإلكتروني أو رقم الجوال
+                البريد الإلكتروني
               </label>
               <div className="relative">
                 <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
-                  type="text"
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="example@email.com"
@@ -62,21 +69,16 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 rounded border-slate-300" />
-                <span className="text-slate-600">تذكرني</span>
-              </label>
-              <a href="#" className="text-primary hover:underline font-semibold">
-                نسيت كلمة المرور؟
-              </a>
-            </div>
+            {loginError && (
+              <p className="text-red-600 text-sm font-medium text-center">{loginError}</p>
+            )}
 
             <button
               type="submit"
-              className="w-full py-4 bg-gradient-to-l from-primary to-secondary text-white rounded-lg font-bold text-lg hover:shadow-lg transition-all"
+              disabled={isLoggingIn}
+              className="w-full py-4 bg-gradient-to-l from-primary to-secondary text-white rounded-lg font-bold text-lg hover:shadow-lg transition-all disabled:opacity-60"
             >
-              دخول
+              {isLoggingIn ? "جارٍ الدخول..." : "دخول"}
             </button>
           </form>
 

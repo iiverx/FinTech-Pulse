@@ -1,22 +1,42 @@
 import React, { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { Link, useLocation } from "wouter";
-import { User, Phone, Mail, Lock, ArrowLeft } from "lucide-react";
+import { User, Mail, Lock, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
+  const { register, isRegistering, registerError } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
-    phone: "",
     email: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
   });
+  const [validationError, setValidationError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLocation("/setup");
+    setValidationError("");
+
+    if (formData.password !== formData.confirmPassword) {
+      setValidationError("كلمتا المرور غير متطابقتين");
+      return;
+    }
+
+    try {
+      await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+      setLocation("/setup");
+    } catch {
+      // error shown via registerError
+    }
   };
+
+  const error = validationError || registerError;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center px-4 py-12">
@@ -42,25 +62,8 @@ export default function RegisterPage() {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="أحمد محمد"
-                  className="w-full pr-12 pl-4 py-3 border-2 border-slate-300 rounded-lg focus:border-primary focus:outline-none"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                رقم الجوال
-              </label>
-              <div className="relative">
-                <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  placeholder="05XXXXXXXX"
                   className="w-full pr-12 pl-4 py-3 border-2 border-slate-300 rounded-lg focus:border-primary focus:outline-none"
                   required
                 />
@@ -76,7 +79,7 @@ export default function RegisterPage() {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="example@email.com"
                   className="w-full pr-12 pl-4 py-3 border-2 border-slate-300 rounded-lg focus:border-primary focus:outline-none"
                   required
@@ -93,10 +96,11 @@ export default function RegisterPage() {
                 <input
                   type="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"
                   className="w-full pr-12 pl-4 py-3 border-2 border-slate-300 rounded-lg focus:border-primary focus:outline-none"
                   required
+                  minLength={6}
                 />
               </div>
             </div>
@@ -110,7 +114,7 @@ export default function RegisterPage() {
                 <input
                   type="password"
                   value={formData.confirmPassword}
-                  onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   placeholder="••••••••"
                   className="w-full pr-12 pl-4 py-3 border-2 border-slate-300 rounded-lg focus:border-primary focus:outline-none"
                   required
@@ -118,11 +122,16 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {error && (
+              <p className="text-red-600 text-sm font-medium text-center">{error}</p>
+            )}
+
             <button
               type="submit"
-              className="w-full py-4 bg-gradient-to-l from-primary to-secondary text-white rounded-lg font-bold text-lg hover:shadow-lg transition-all"
+              disabled={isRegistering}
+              className="w-full py-4 bg-gradient-to-l from-primary to-secondary text-white rounded-lg font-bold text-lg hover:shadow-lg transition-all disabled:opacity-60"
             >
-              متابعة
+              {isRegistering ? "جارٍ إنشاء الحساب..." : "متابعة"}
             </button>
           </form>
 

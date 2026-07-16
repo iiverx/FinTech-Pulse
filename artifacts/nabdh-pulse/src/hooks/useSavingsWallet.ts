@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface SavingTransaction {
@@ -30,14 +31,49 @@ export interface Insight {
   text: string;
 }
 
-const STORAGE_KEY = "nabdh_savings_wallet";
+const DEFAULT_GOAL = 5000;
+const DEFAULT_AVAILABLE = 7500;
 
-const DEFAULT_STATE: SavingsState = {
-  balance: 0,
-  availableBalance: 7500,   // simulated monthly income
-  goal: 5000,
-  transactions: [],
-};
+// ── API helpers ───────────────────────────────────────────────────────────────
+// Session cookie is sent automatically by the browser — no auth header needed.
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+async function apiGet<T>(path: string): Promise<T> {
+  const res = await fetch(path, { credentials: "include" });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+  return res.json() as Promise<T>;
+}
+
+async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+  return res.json() as Promise<T>;
+}
+
+async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "PUT",
+    headers: JSON_HEADERS,
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+  return res.json() as Promise<T>;
+}
+
+async function apiDelete<T>(path: string): Promise<T> {
+  const res = await fetch(path, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+  return res.json() as Promise<T>;
+}
 
 // ── Wallet level helper ───────────────────────────────────────────────────────
 export function walletLevel(balance: number, goal: number): 1 | 2 | 3 | 4 {
@@ -49,83 +85,103 @@ export function walletLevel(balance: number, goal: number): 1 | 2 | 3 | 4 {
   return 1;
 }
 
-// ── Persistence helpers ───────────────────────────────────────────────────────
-function load(): SavingsState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_STATE, ...JSON.parse(raw) };
-  } catch { /* ignore */ }
-  return { ...DEFAULT_STATE };
-}
-
-function save(state: SavingsState) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
-}
-
 // ── Hook ──────────────────────────────────────────────────────────────────────
 export function useSavingsWallet() {
-  const [state, setState] = useState<SavingsState>(load);
+  const queryClient = useQueryClient();
 
-  const persist = useCallback((next: SavingsState) => {
-    save(next);
-    setState(next);
-  }, []);
+  // ── Fetch goal ──────────────────────────────────────────────────────────────
+  const { data: goalData } = useQuery({
+    queryKey: ["savings-goal"],
+    queryFn: () => apiGet<{ goal: number }>("/api/savings/goal"),
+    staleTime: 30_000,
+    retry: false,
+  });
 
-  // Add a saving deposit
-  const addSaving = useCallback((amount: number, note?: string) => {
-    setState(prev => {
-      const tx: SavingTransaction = {
-        id: Date.now().toString(),
-        amount,
-        date: new Date().toISOString(),
-        note,
-      };
-      const next: SavingsState = {
-        ...prev,
-        balance: prev.balance + amount,
-        availableBalance: Math.max(0, prev.availableBalance - amount),
-        transactions: [tx, ...prev.transactions],
-      };
-      save(next);
-      return next;
-    });
-  }, []);
+  // ── Fetch transactions ──────────────────────────────────────────────────────
+  const { data: txData } = useQuery({
+    queryKey: ["savings-transactions"],
+    queryFn: () =>
+      apiGet<{ transactions: SavingTransaction[] }>("/api/savings/transactions"),
+    staleTime: 15_000,
+    retry: false,
+  });
 
-  // Update savings goal
-  const setGoal = useCallback((goal: number) => {
-    setState(prev => {
-      const next = { ...prev, goal };
-      save(next);
-      return next;
-    });
-  }, []);
+  // ── Derived state ──────────────────────────────────────────────────────────
+  const transactions: SavingTransaction[] = txData?.transactions ?? [];
+  const goal = goalData?.goal ?? DEFAULT_GOAL;
+  const balance = transactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const availableBalance = Math.max(0, DEFAULT_AVAILABLE - balance);
 
-  // Reset (for demo / testing)
-  const reset = useCallback(() => {
-    persist({ ...DEFAULT_STATE });
-  }, [persist]);
+  const state: SavingsState = {
+    balance,
+    availableBalance,
+    goal,
+    transactions,
+  };
 
-  // Monthly report
+  // ── Add saving mutation ────────────────────────────────────────────────────
+  const addSavingMutation = useMutation({
+    mutationFn: ({ amount, note }: { amount: number; note?: string }) =>
+      apiPost<SavingTransaction>("/api/savings/transactions", { amount, note }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["savings-transactions"] });
+    },
+  });
+
+  const addSaving = useCallback(
+    (amount: number, note?: string) => {
+      addSavingMutation.mutate({ amount, note });
+    },
+    [addSavingMutation],
+  );
+
+  // ── Set goal mutation ──────────────────────────────────────────────────────
+  const setGoalMutation = useMutation({
+    mutationFn: (goal: number) =>
+      apiPut<{ goal: number }>("/api/savings/goal", { goal }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["savings-goal"] });
+    },
+  });
+
+  const setGoal = useCallback(
+    (goal: number) => {
+      setGoalMutation.mutate(goal);
+    },
+    [setGoalMutation],
+  );
+
+  // ── Reset (clears all backend data for this user) ──────────────────────────
+  const reset = useCallback(async () => {
+    await Promise.all([
+      apiDelete("/api/savings/transactions"),
+      apiPut("/api/savings/goal", { goal: DEFAULT_GOAL }),
+    ]);
+    queryClient.invalidateQueries({ queryKey: ["savings-transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["savings-goal"] });
+  }, [queryClient]);
+
+  // ── Monthly report ─────────────────────────────────────────────────────────
   const getMonthlyReport = useCallback((): MonthlyReport => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const monthTxs = state.transactions.filter(tx => tx.date >= monthStart);
+    const monthTxs = transactions.filter((tx) => tx.date >= monthStart);
     const totalSaved = monthTxs.reduce((s, tx) => s + tx.amount, 0);
-    const totalIncome = state.availableBalance + totalSaved; // reconstruct from deductions
-    const goalProgress = state.goal > 0
-      ? Math.min(100, Math.round((state.balance / state.goal) * 100))
-      : 0;
+    const totalIncome = availableBalance + totalSaved;
+    const goalProgress =
+      goal > 0 ? Math.min(100, Math.round((balance / goal) * 100)) : 0;
     return {
       totalIncome,
       totalSaved,
-      savingPercent: totalIncome > 0 ? Math.round((totalSaved / totalIncome) * 100) : 0,
+      savingPercent:
+        totalIncome > 0 ? Math.round((totalSaved / totalIncome) * 100) : 0,
       actionCount: monthTxs.length,
-      remainingBalance: state.availableBalance,
+      remainingBalance: availableBalance,
       goalProgress,
     };
-  }, [state]);
+  }, [transactions, availableBalance, goal, balance]);
 
-  // Smart insights
+  // ── Smart insights ─────────────────────────────────────────────────────────
   const getInsights = useCallback((): Insight[] => {
     const report = getMonthlyReport();
     const insights: Insight[] = [];
@@ -138,8 +194,8 @@ export function useSavingsWallet() {
       });
     }
 
-    if (state.goal > 0 && state.balance > 0) {
-      const remaining = state.goal - state.balance;
+    if (goal > 0 && balance > 0) {
+      const remaining = goal - balance;
       if (remaining > 0 && report.totalSaved > 0) {
         const monthsLeft = Math.ceil(remaining / report.totalSaved);
         insights.push({
@@ -167,7 +223,7 @@ export function useSavingsWallet() {
     }
 
     return insights;
-  }, [state, getMonthlyReport]);
+  }, [goal, balance, getMonthlyReport]);
 
   return {
     state,
@@ -177,6 +233,10 @@ export function useSavingsWallet() {
     getMonthlyReport,
     getInsights,
     level: walletLevel(state.balance, state.goal),
-    progressPct: state.goal > 0 ? Math.min(100, Math.round((state.balance / state.goal) * 100)) : 0,
+    progressPct:
+      state.goal > 0
+        ? Math.min(100, Math.round((state.balance / state.goal) * 100))
+        : 0,
+    isLoading: !txData || !goalData,
   };
 }

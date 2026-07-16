@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -31,18 +31,21 @@ export interface Insight {
   text: string;
 }
 
-const DEFAULT_GOAL = 5000;
+const DEFAULT_GOAL      = 5000;
 const DEFAULT_AVAILABLE = 7500;
 
-// ── Reminder preferences (localStorage-only, not synced to backend) ───────────
-const REMINDER_KEY        = "nabdh_reminder_prefs";
-const LAST_VISIT_KEY      = "nabdh_last_visit_month";
-const LAST_REMINDER_FIRED = "nabdh_last_reminder_fired"; // value: "YYYY-MM-DD-HH"
+// ── localStorage keys ─────────────────────────────────────────────────────────
+const LS_TRANSACTIONS   = "nabdh_transactions";
+const LS_GOAL           = "nabdh_goal";
+const REMINDER_KEY      = "nabdh_reminder_prefs";
+const LAST_VISIT_KEY    = "nabdh_last_visit_month";
+const LAST_REMINDER_FIRED = "nabdh_last_reminder_fired";
 
+// ── Reminder helpers ──────────────────────────────────────────────────────────
 export interface ReminderPrefs {
   enabled: boolean;
-  dayOfWeek: number;  // 0=Sun … 6=Sat
-  hour: number;       // 0-23
+  dayOfWeek: number;
+  hour: number;
 }
 
 const DEFAULT_REMINDER: ReminderPrefs = { enabled: false, dayOfWeek: 4, hour: 9 };
@@ -59,8 +62,6 @@ export function saveReminderPrefs(prefs: ReminderPrefs): void {
   try { localStorage.setItem(REMINDER_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
 }
 
-/** Returns the previous month's YYYY-MM string if the user's last recorded visit
- *  was in a different calendar month, and updates the stored month to now. */
 export function checkAndRecordVisit(): string | null {
   const now = new Date();
   const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -78,22 +79,20 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return Notification.requestPermission();
 }
 
-/** Returns true if a reminder has already been fired for the current hour today. */
 export function hasReminderFiredThisPeriod(): boolean {
   try {
     const stored = localStorage.getItem(LAST_REMINDER_FIRED);
     if (!stored) return false;
     const now = new Date();
-    const key = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${now.getHours()}`;
+    const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}`;
     return stored === key;
   } catch { return false; }
 }
 
-/** Mark a reminder as fired for the current hour (dedup guard). */
 export function markReminderFired(): void {
   try {
     const now = new Date();
-    const key = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${now.getHours()}`;
+    const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}`;
     localStorage.setItem(LAST_REMINDER_FIRED, key);
   } catch { /* ignore */ }
 }
@@ -103,15 +102,11 @@ export function fireReminderNotification(message: string): void {
   if (Notification.permission !== "granted") return;
   try {
     new Notification("نبض | تذكير الادخار 🪙", {
-      body: message,
-      icon: "/favicon.ico",
-      dir: "rtl",
-      lang: "ar",
+      body: message, icon: "/favicon.ico", dir: "rtl", lang: "ar",
     });
   } catch { /* ignore */ }
 }
 
-/** Check right now whether the reminder should fire. Returns true and marks fired if it should. */
 export function checkReminderShouldFire(prefs: ReminderPrefs): boolean {
   if (!prefs.enabled) return false;
   const now = new Date();
@@ -122,44 +117,61 @@ export function checkReminderShouldFire(prefs: ReminderPrefs): boolean {
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
-// Session cookie is sent automatically by the browser — no auth header needed.
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(path, { credentials: "include" });
-  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+  if (!res.ok) throw new Error(`${res.status}`);
   return res.json() as Promise<T>;
 }
 
 async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, {
-    method: "POST",
-    headers: JSON_HEADERS,
-    credentials: "include",
-    body: JSON.stringify(body),
+    method: "POST", headers: JSON_HEADERS,
+    credentials: "include", body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+  if (!res.ok) throw new Error(`${res.status}`);
   return res.json() as Promise<T>;
 }
 
 async function apiPut<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, {
-    method: "PUT",
-    headers: JSON_HEADERS,
-    credentials: "include",
-    body: JSON.stringify(body),
+    method: "PUT", headers: JSON_HEADERS,
+    credentials: "include", body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+  if (!res.ok) throw new Error(`${res.status}`);
   return res.json() as Promise<T>;
 }
 
 async function apiDelete<T>(path: string): Promise<T> {
-  const res = await fetch(path, {
-    method: "DELETE",
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+  const res = await fetch(path, { method: "DELETE", credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}`);
   return res.json() as Promise<T>;
+}
+
+// ── localStorage helpers ──────────────────────────────────────────────────────
+function lsLoadTransactions(): SavingTransaction[] {
+  try {
+    const raw = localStorage.getItem(LS_TRANSACTIONS);
+    if (raw) return JSON.parse(raw) as SavingTransaction[];
+  } catch { /* ignore */ }
+  return [];
+}
+
+function lsSaveTransactions(txs: SavingTransaction[]): void {
+  try { localStorage.setItem(LS_TRANSACTIONS, JSON.stringify(txs)); } catch { /* ignore */ }
+}
+
+function lsLoadGoal(): number {
+  try {
+    const raw = localStorage.getItem(LS_GOAL);
+    if (raw) return Number(raw);
+  } catch { /* ignore */ }
+  return DEFAULT_GOAL;
+}
+
+function lsSaveGoal(goal: number): void {
+  try { localStorage.setItem(LS_GOAL, String(goal)); } catch { /* ignore */ }
 }
 
 // ── Wallet level helper ───────────────────────────────────────────────────────
@@ -176,38 +188,61 @@ export function walletLevel(balance: number, goal: number): 1 | 2 | 3 | 4 {
 export function useSavingsWallet() {
   const queryClient = useQueryClient();
 
-  // ── Fetch goal ──────────────────────────────────────────────────────────────
+  // ── 1. Check if user is authenticated ───────────────────────────────────────
+  const { data: authData, isLoading: authLoading } = useQuery({
+    queryKey: ["auth-me"],
+    queryFn: () => apiGet<{ id: string }>("/api/auth/me"),
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  const isAuthenticated = !!authData?.id;
+
+  // ── 2a. API-backed queries (only when authenticated) ─────────────────────────
   const { data: goalData } = useQuery({
     queryKey: ["savings-goal"],
     queryFn: () => apiGet<{ goal: number }>("/api/savings/goal"),
+    enabled: isAuthenticated,
     staleTime: 30_000,
     retry: false,
   });
 
-  // ── Fetch transactions ──────────────────────────────────────────────────────
   const { data: txData } = useQuery({
     queryKey: ["savings-transactions"],
-    queryFn: () =>
-      apiGet<{ transactions: SavingTransaction[] }>("/api/savings/transactions"),
+    queryFn: () => apiGet<{ transactions: SavingTransaction[] }>("/api/savings/transactions"),
+    enabled: isAuthenticated,
     staleTime: 15_000,
     retry: false,
   });
 
-  // ── Derived state ──────────────────────────────────────────────────────────
-  const transactions: SavingTransaction[] = txData?.transactions ?? [];
-  const goal = goalData?.goal ?? DEFAULT_GOAL;
+  // ── 2b. localStorage state (when NOT authenticated) ───────────────────────────
+  const [lsTxs,  setLsTxs]  = useState<SavingTransaction[]>([]);
+  const [lsGoal, setLsGoal] = useState<number>(DEFAULT_GOAL);
+  const lsInited = useRef(false);
+
+  useEffect(() => {
+    // Load from localStorage once auth check resolves
+    if (authLoading) return;
+    if (!isAuthenticated && !lsInited.current) {
+      lsInited.current = true;
+      setLsTxs(lsLoadTransactions());
+      setLsGoal(lsLoadGoal());
+    }
+  }, [authLoading, isAuthenticated]);
+
+  // ── 3. Unified derived state ──────────────────────────────────────────────────
+  const transactions: SavingTransaction[] = isAuthenticated
+    ? (txData?.transactions ?? [])
+    : lsTxs;
+
+  const goal = isAuthenticated ? (goalData?.goal ?? DEFAULT_GOAL) : lsGoal;
   const balance = transactions.reduce((sum, tx) => sum + tx.amount, 0);
   const availableBalance = Math.max(0, DEFAULT_AVAILABLE - balance);
 
-  const state: SavingsState = {
-    balance,
-    availableBalance,
-    goal,
-    transactions,
-  };
+  const state: SavingsState = { balance, availableBalance, goal, transactions };
 
-  // ── Add saving mutation ────────────────────────────────────────────────────
-  const addSavingMutation = useMutation({
+  // ── 4a. API mutations ─────────────────────────────────────────────────────────
+  const addSavingApiMutation = useMutation({
     mutationFn: ({ amount, note }: { amount: number; note?: string }) =>
       apiPost<SavingTransaction>("/api/savings/transactions", { amount, note }),
     onSuccess: () => {
@@ -215,68 +250,92 @@ export function useSavingsWallet() {
     },
   });
 
-  const addSaving = useCallback(
-    (amount: number, note?: string) => {
-      addSavingMutation.mutate({ amount, note });
-    },
-    [addSavingMutation],
-  );
-
-  // ── Set goal mutation ──────────────────────────────────────────────────────
-  const setGoalMutation = useMutation({
-    mutationFn: (goal: number) =>
-      apiPut<{ goal: number }>("/api/savings/goal", { goal }),
+  const setGoalApiMutation = useMutation({
+    mutationFn: (newGoal: number) =>
+      apiPut<{ goal: number }>("/api/savings/goal", { goal: newGoal }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["savings-goal"] });
     },
   });
 
-  const setGoal = useCallback(
-    (goal: number) => {
-      setGoalMutation.mutate(goal);
+  // ── 4b. localStorage mutations ────────────────────────────────────────────────
+  const addSavingLocal = useCallback((amount: number, note?: string) => {
+    const newTx: SavingTransaction = {
+      id: `ls-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      amount,
+      note,
+      date: new Date().toISOString(),
+    };
+    setLsTxs(prev => {
+      const next = [newTx, ...prev];
+      lsSaveTransactions(next);
+      return next;
+    });
+  }, []);
+
+  const setGoalLocal = useCallback((newGoal: number) => {
+    setLsGoal(newGoal);
+    lsSaveGoal(newGoal);
+  }, []);
+
+  // ── 5. Unified API ────────────────────────────────────────────────────────────
+  const addSaving = useCallback(
+    (amount: number, note?: string) => {
+      if (isAuthenticated) addSavingApiMutation.mutate({ amount, note });
+      else addSavingLocal(amount, note);
     },
-    [setGoalMutation],
+    [isAuthenticated, addSavingApiMutation, addSavingLocal],
   );
 
-  // ── Reset (clears all backend data for this user) ──────────────────────────
-  const reset = useCallback(async () => {
-    await Promise.all([
-      apiDelete("/api/savings/transactions"),
-      apiPut("/api/savings/goal", { goal: DEFAULT_GOAL }),
-    ]);
-    queryClient.invalidateQueries({ queryKey: ["savings-transactions"] });
-    queryClient.invalidateQueries({ queryKey: ["savings-goal"] });
-  }, [queryClient]);
+  const setGoal = useCallback(
+    (newGoal: number) => {
+      if (isAuthenticated) setGoalApiMutation.mutate(newGoal);
+      else setGoalLocal(newGoal);
+    },
+    [isAuthenticated, setGoalApiMutation, setGoalLocal],
+  );
 
-  // ── Monthly report ─────────────────────────────────────────────────────────
+  const reset = useCallback(async () => {
+    if (isAuthenticated) {
+      await Promise.all([
+        apiDelete("/api/savings/transactions"),
+        apiPut("/api/savings/goal", { goal: DEFAULT_GOAL }),
+      ]);
+      queryClient.invalidateQueries({ queryKey: ["savings-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["savings-goal"] });
+    } else {
+      setLsTxs([]);
+      setLsGoal(DEFAULT_GOAL);
+      lsSaveTransactions([]);
+      lsSaveGoal(DEFAULT_GOAL);
+    }
+  }, [isAuthenticated, queryClient]);
+
+  // ── 6. Monthly report & insights ─────────────────────────────────────────────
   const getMonthlyReport = useCallback((): MonthlyReport => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const monthTxs = transactions.filter((tx) => tx.date >= monthStart);
+    const monthTxs   = transactions.filter(tx => tx.date >= monthStart);
     const totalSaved = monthTxs.reduce((s, tx) => s + tx.amount, 0);
     const totalIncome = availableBalance + totalSaved;
-    const goalProgress =
-      goal > 0 ? Math.min(100, Math.round((balance / goal) * 100)) : 0;
+    const goalProgress = goal > 0 ? Math.min(100, Math.round((balance / goal) * 100)) : 0;
     return {
       totalIncome,
       totalSaved,
-      savingPercent:
-        totalIncome > 0 ? Math.round((totalSaved / totalIncome) * 100) : 0,
+      savingPercent: totalIncome > 0 ? Math.round((totalSaved / totalIncome) * 100) : 0,
       actionCount: monthTxs.length,
       remainingBalance: availableBalance,
       goalProgress,
     };
   }, [transactions, availableBalance, goal, balance]);
 
-  // ── Smart insights ─────────────────────────────────────────────────────────
   const getInsights = useCallback((): Insight[] => {
     const report = getMonthlyReport();
     const insights: Insight[] = [];
 
     if (report.actionCount >= 3) {
       insights.push({
-        id: "habit",
-        icon: "star",
+        id: "habit", icon: "star",
         text: `أنت تدخر بانتظام — ${report.actionCount} عملية توفير هذا الشهر. استمر!`,
       });
     }
@@ -286,8 +345,7 @@ export function useSavingsWallet() {
       if (remaining > 0 && report.totalSaved > 0) {
         const monthsLeft = Math.ceil(remaining / report.totalSaved);
         insights.push({
-          id: "projection",
-          icon: "target",
+          id: "projection", icon: "target",
           text: `إذا واصلت نفس الوتيرة، ستصل إلى هدفك خلال ${monthsLeft} ${monthsLeft === 1 ? "شهر" : "أشهر"}.`,
         });
       }
@@ -295,22 +353,23 @@ export function useSavingsWallet() {
 
     if (report.savingPercent > 0) {
       insights.push({
-        id: "rate",
-        icon: "trending-up",
+        id: "rate", icon: "trending-up",
         text: `نسبة ادخارك هذا الشهر ${report.savingPercent}% — ${report.savingPercent >= 20 ? "ممتاز! أنت تدخر أكثر من المعدل العام." : "حاول الوصول لـ 20% لنتائج أفضل."}`,
       });
     }
 
     if (insights.length === 0) {
       insights.push({
-        id: "start",
-        icon: "star",
+        id: "start", icon: "star",
         text: "ابدأ بإضافة مبلغ صغير إلى محفظتك الآن — كل ريال يُحدث فرقًا!",
       });
     }
 
     return insights;
   }, [goal, balance, getMonthlyReport]);
+
+  // isLoading: wait for auth check first, then wait for data if authed
+  const isLoading = authLoading || (isAuthenticated && (!txData || !goalData));
 
   return {
     state,
@@ -320,10 +379,10 @@ export function useSavingsWallet() {
     getMonthlyReport,
     getInsights,
     level: walletLevel(state.balance, state.goal),
-    progressPct:
-      state.goal > 0
-        ? Math.min(100, Math.round((state.balance / state.goal) * 100))
-        : 0,
-    isLoading: !txData || !goalData,
+    progressPct: state.goal > 0
+      ? Math.min(100, Math.round((state.balance / state.goal) * 100))
+      : 0,
+    isLoading,
+    isAuthenticated,
   };
 }

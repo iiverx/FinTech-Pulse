@@ -1,16 +1,15 @@
 import React from "react";
-import { Logo } from "@/components/Logo";
+import { Navbar } from "@/components/Navbar";
 import { Link } from "wouter";
 import { CreditCard, UserPlus, LogIn, PlayCircle } from "lucide-react";
 
 export default function AuthPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50" dir="rtl">
+      <Navbar fixed={false} />
+      <div className="flex items-center justify-center px-4 py-12">
       <div className="max-w-lg w-full">
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <Logo imageClassName="h-16" />
-          </div>
           <h1 className="text-3xl font-black text-slate-900 mb-3">مرحبًا بك في نبض</h1>
           <p className="text-slate-600 text-lg">
             اختر طريقة الدخول المناسبة لك
@@ -65,6 +64,7 @@ export default function AuthPage() {
             العودة إلى الرئيسية
           </Link>
         </div>
+      </div>
       </div>
     </div>
   );

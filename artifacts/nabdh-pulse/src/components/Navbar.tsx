@@ -14,11 +14,11 @@ const NAV_LINKS = [
   { label: "الرؤية",         href: "#vision",     isRoute: false },
 ];
 
-export function Navbar() {
+export function Navbar({ fixed = true }: { fixed?: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200">
+    <nav className={`${fixed ? "fixed top-0 left-0 right-0" : "relative"} z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}

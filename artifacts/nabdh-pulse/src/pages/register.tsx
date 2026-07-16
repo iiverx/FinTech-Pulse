@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Logo } from "@/components/Logo";
+import { Navbar } from "@/components/Navbar";
 import { Link, useLocation } from "wouter";
 import { User, Mail, Lock, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,12 +39,11 @@ export default function RegisterPage() {
   const error = validationError || registerError;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50" dir="rtl">
+      <Navbar fixed={false} />
+      <div className="flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <Logo imageClassName="h-14" />
-          </div>
           <h1 className="text-3xl font-black text-slate-900 mb-2">إنشاء حساب جديد</h1>
           <p className="text-slate-600">
             انضم إلى نبض وابدأ رحلتك المالية
@@ -151,6 +150,7 @@ export default function RegisterPage() {
             <span>رجوع</span>
           </Link>
         </div>
+      </div>
       </div>
     </div>
   );

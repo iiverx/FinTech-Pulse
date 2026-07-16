@@ -17,6 +17,7 @@ import AnalyzingPage from '@/pages/analyzing';
 import ResultPage from '@/pages/result';
 import DashboardPage from '@/pages/dashboard';
 import SavingsPage from '@/pages/savings';
+import CalculatorPage from '@/pages/calculator';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/result" component={ResultPage} />
       <Route path="/dashboard" component={DashboardPage} />
       <Route path="/savings" component={SavingsPage} />
+      <Route path="/calculator" component={CalculatorPage} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import SmartCalculator from "@/components/SmartCalculator";
 import { Logo } from "@/components/Logo";
 import { WalletGraphic } from "@/components/WalletGraphic";
 import { CoinAnimation } from "@/components/CoinAnimation";
@@ -14,7 +13,7 @@ import {
 import {
   Home, Activity, Wallet, Bell, Brain, Users, Settings,
   TrendingUp, Target, Zap, Plus, X, Star, Trophy,
-  Sparkles, PiggyBank, ArrowDown, Clock, Calendar,
+  Sparkles, PiggyBank, ArrowDown, Clock, Calendar, CircleDollarSign,
 } from "lucide-react";
 
 const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -172,14 +171,15 @@ export default function SavingsPage() {
         </div>
         <nav className="flex-1 p-4 space-y-2">
           {[
-            { icon: Home,     label: "الرئيسية",        href: "/dashboard", active: false },
-            { icon: Activity, label: "مؤشر النبض",      href: "/dashboard", active: false },
-            { icon: Wallet,   label: "المحفظة الذكية",  href: "/savings",   active: true  },
-            { icon: Bell,     label: "التنبيهات",       href: "/dashboard", active: false },
-            { icon: Zap,      label: "المحاكاة",        href: "/dashboard", active: false },
-            { icon: Brain,    label: "المساعد الذكي",   href: "/dashboard", active: false },
-            { icon: Users,    label: "مجتمع نبض",       href: "/dashboard", active: false },
-            { icon: Settings, label: "الإعدادات",       href: "/dashboard", active: false },
+            { icon: Home,     label: "الرئيسية",        href: "/dashboard",   active: false },
+            { icon: Activity, label: "مؤشر النبض",      href: "/dashboard",   active: false },
+            { icon: Wallet,   label: "المحفظة الذكية",  href: "/savings",     active: true  },
+            { icon: Bell,     label: "التنبيهات",       href: "/dashboard",   active: false },
+            { icon: Zap,      label: "المحاكاة",        href: "/dashboard",   active: false },
+            { icon: CircleDollarSign, label: "الحاسبة الذكية", href: "/calculator", active: false },
+            { icon: Brain,    label: "المساعد الذكي",   href: "/dashboard",   active: false },
+            { icon: Users,    label: "مجتمع نبض",       href: "/dashboard",   active: false },
+            { icon: Settings, label: "الإعدادات",       href: "/dashboard",   active: false },
           ].map((item, idx) => (
             <Link
               key={idx}
@@ -422,15 +422,6 @@ export default function SavingsPage() {
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* ── Smart Calculator ───────────────────────────────────────── */}
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Zap className="w-5 h-5 text-teal-600" />
-              الحاسبة المالية الذكية
-            </h2>
-            <SmartCalculator />
           </div>
 
           {/* ── Smart insights ─────────────────────────────────────────── */}

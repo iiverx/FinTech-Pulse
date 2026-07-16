@@ -26,10 +26,14 @@ interface Palette {
 }
 
 const PALETTES: Record<1|2|3|4, Palette> = {
-  1: { body1:'#1E293B', body2:'#0F172A', body3:'#020617', fold1:'#334155', hw1:'#94A3B8', hw2:'#64748B', stitch:'#475569', cardA:'#1D4ED8', cardB:'#0EA5E9', billColor:'#15803D' },
-  2: { body1:'#581C87', body2:'#3B0764', body3:'#1E0035', fold1:'#7C3AED', hw1:'#C4B5FD', hw2:'#8B5CF6', stitch:'#6D28D9', cardA:'#7C3AED', cardB:'#A78BFA', billColor:'#7C3AED' },
-  3: { body1:'#14532D', body2:'#052E16', body3:'#022C17', fold1:'#166534', hw1:'#4ADE80', hw2:'#16A34A', stitch:'#15803D', cardA:'#059669', cardB:'#34D399', billColor:'#15803D' },
-  4: { body1:'#92400E', body2:'#78350F', body3:'#451A03', fold1:'#B45309', hw1:'#FCD34D', hw2:'#F59E0B', stitch:'#D97706', cardA:'#D97706', cardB:'#FCD34D', billColor:'#CA8A04' },
+  // Level 1 — deep navy → primary blue
+  1: { body1:'#1E3A6E', body2:'#122355', body3:'#0A1628', fold1:'#1D4ED8', hw1:'#93C5FD', hw2:'#3B82F6', stitch:'#2563EB', cardA:'#1D4ED8', cardB:'#60A5FA', billColor:'#1D4ED8' },
+  // Level 2 — blue-to-teal
+  2: { body1:'#164E63', body2:'#0C3547', body3:'#041D2C', fold1:'#0891B2', hw1:'#67E8F9', hw2:'#0891B2', stitch:'#0E7490', cardA:'#0891B2', cardB:'#67E8F9', billColor:'#0E7490' },
+  // Level 3 — site secondary green
+  3: { body1:'#14532D', body2:'#052E16', body3:'#021A0C', fold1:'#16A34A', hw1:'#4ADE80', hw2:'#16A34A', stitch:'#15803D', cardA:'#16A34A', cardB:'#4ADE80', billColor:'#15803D' },
+  // Level 4 — premium gold
+  4: { body1:'#78350F', body2:'#5C2A0A', body3:'#3A1800', fold1:'#D97706', hw1:'#FCD34D', hw2:'#F59E0B', stitch:'#B45309', cardA:'#D97706', cardB:'#FDE68A', billColor:'#16A34A' },
 };
 
 export function WalletGraphic({ level, pulse = true, width = 340, height = 200 }: WalletGraphicProps) {

@@ -9,13 +9,9 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import Svg, {
-  Defs,
-  LinearGradient,
-  Stop,
-  Rect,
-  Circle,
-  Line,
-  Path,
+  Defs, LinearGradient, RadialGradient, Stop,
+  Rect, Circle, Path, Line, Text as SvgText,
+  Ellipse, G,
 } from 'react-native-svg';
 
 interface WalletGraphicProps {
@@ -25,268 +21,252 @@ interface WalletGraphicProps {
   height?: number;
 }
 
-interface LevelPalette {
-  body1: string;
-  body2: string;
-  body3: string;
-  stitch: string;
-  clasp1: string;
-  clasp2: string;
-  border: string;
-  card: boolean;
+interface Palette {
+  bg0: string; bg1: string; bg2: string;
+  accent: string; ring: string; particle: string;
 }
 
-const LEVELS: Record<1 | 2 | 3 | 4, LevelPalette> = {
-  1: {
-    body1: '#A07040',
-    body2: '#7B4F2E',
-    body3: '#4A2E10',
-    stitch: '#C09070',
-    clasp1: '#9E8060',
-    clasp2: '#6B5040',
-    border: '#70502080',
-    card: false,
-  },
-  2: {
-    body1: '#B08040',
-    body2: '#8B5E34',
-    body3: '#5A3518',
-    stitch: '#C8A070',
-    clasp1: '#E8C040',
-    clasp2: '#C8A020',
-    border: '#C8A04080',
-    card: true,
-  },
-  3: {
-    body1: '#9B7040',
-    body2: '#6B4020',
-    body3: '#3A1F0A',
-    stitch: '#B08050',
-    clasp1: '#FFD700',
-    clasp2: '#C8A000',
-    border: '#FFD70099',
-    card: true,
-  },
-  4: {
-    body1: '#FFD700',
-    body2: '#E8C020',
-    body3: '#9A7010',
-    stitch: '#FFE066',
-    clasp1: '#FFF0A0',
-    clasp2: '#C8A000',
-    border: '#FFD700',
-    card: true,
-  },
+const PALETTES: Record<1|2|3|4, Palette> = {
+  1: { bg0:'#0F172A', bg1:'#1E3A5F', bg2:'#1E40AF', accent:'#60A5FA', ring:'#3B82F6', particle:'#93C5FD' },
+  2: { bg0:'#1A0533', bg1:'#4C1D95', bg2:'#7C3AED', accent:'#A78BFA', ring:'#8B5CF6', particle:'#C4B5FD' },
+  3: { bg0:'#052E16', bg1:'#065F46', bg2:'#059669', accent:'#34D399', ring:'#10B981', particle:'#6EE7B7' },
+  4: { bg0:'#1C1100', bg1:'#78350F', bg2:'#D97706', accent:'#FCD34D', ring:'#F59E0B', particle:'#FDE68A' },
 };
 
-export function WalletGraphic({ level, pulse = true, width = 300, height = 200 }: WalletGraphicProps) {
+const LEVEL_NAMES: Record<1|2|3|4, string> = {
+  1: 'مبتدئة', 2: 'نشطة', 3: 'ذهبية', 4: 'فاخرة ✦',
+};
+
+export function WalletGraphic({ level, pulse = true, width = 300, height = 190 }: WalletGraphicProps) {
   const scaleVal = useSharedValue(1);
+  const shimVal  = useSharedValue(0);
 
   useEffect(() => {
     if (pulse && Platform.OS !== 'web') {
       scaleVal.value = withRepeat(
         withSequence(
-          withTiming(1.018, { duration: 1400, easing: Easing.inOut(Easing.sin) }),
-          withTiming(1.0, { duration: 1400, easing: Easing.inOut(Easing.sin) }),
-        ),
-        -1,
-        false,
+          withTiming(1.02, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+          withTiming(1.0,  { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+        ), -1, false,
       );
     }
+    shimVal.value = withRepeat(
+      withTiming(1, { duration: 2800, easing: Easing.linear }), -1, false,
+    );
   }, [pulse]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleVal.value }],
   }));
 
-  const pal = LEVELS[level];
+  const pal = PALETTES[level];
 
-  // SVG viewBox: 220 x 140
-  const vW = 220;
-  const vH = 140;
+  // ViewBox
+  const vW = 300, vH = 190;
+  const bR  = 18;   // corner radius
+  const pct = level / 4;
 
-  // Wallet body dimensions
-  const bX = 10, bY = 14, bW = 200, bH = 112, bR = 12;
+  // Progress ring
+  const ringCx = vW * 0.8, ringCy = vH * 0.38, ringR = 26;
+  const ringCirc  = 2 * Math.PI * ringR;
+  const ringDash  = pct * ringCirc;
 
-  // Card slot (top-right area of front face)
-  const sX = 110, sY = 24, sW = 88, sH = 44, sR = 6;
+  // Grid step
+  const gStep = 28;
 
-  // Card inside slot
-  const cX = 114, cY = 44, cW = 80, cH = 26, cR = 4;
+  // Dot row
+  const dotY = vH * 0.84, dotR = 3.5, dotGap = 18;
 
-  // Fold line
-  const fY = bY + bH / 2;
-
-  // Clasp (center)
-  const clW = 60, clH = 26, clR = 8;
-  const clX = bX + bW / 2 - clW / 2;
-  const clY = fY - clH / 2;
+  // Chip
+  const chipX = vW * 0.07, chipY = vH * 0.14, chipW = 34, chipH = 24;
 
   return (
     <Animated.View style={[{ width, height }, animStyle]}>
       <Svg width={width} height={height} viewBox={`0 0 ${vW} ${vH}`}>
         <Defs>
-          {/* Body gradient */}
+          {/* Background gradient */}
           <LinearGradient id={`bg${level}`} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0%" stopColor={pal.body1} />
-            <Stop offset="50%" stopColor={pal.body2} />
-            <Stop offset="100%" stopColor={pal.body3} />
+            <Stop offset="0%"   stopColor={pal.bg0} />
+            <Stop offset="55%"  stopColor={pal.bg1} />
+            <Stop offset="100%" stopColor={pal.bg2} />
           </LinearGradient>
 
-          {/* Sheen */}
-          <LinearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="rgba(255,255,255,0.28)" />
-            <Stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          {/* Orb 1 — top left */}
+          <RadialGradient id={`orb1${level}`} cx="20%" cy="25%" r="55%" fx="20%" fy="25%">
+            <Stop offset="0%"   stopColor={pal.bg2}  stopOpacity="0.5" />
+            <Stop offset="100%" stopColor={pal.bg0}  stopOpacity="0"   />
+          </RadialGradient>
+
+          {/* Orb 2 — bottom right */}
+          <RadialGradient id={`orb2${level}`} cx="85%" cy="80%" r="45%" fx="85%" fy="80%">
+            <Stop offset="0%"   stopColor={pal.accent} stopOpacity="0.25" />
+            <Stop offset="100%" stopColor={pal.bg0}    stopOpacity="0"    />
+          </RadialGradient>
+
+          {/* Shimmer band */}
+          <LinearGradient id="shim" x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0%"   stopColor={pal.accent} stopOpacity="0"    />
+            <Stop offset="45%"  stopColor={pal.accent} stopOpacity="0.12" />
+            <Stop offset="50%"  stopColor={pal.accent} stopOpacity="0.28" />
+            <Stop offset="55%"  stopColor={pal.accent} stopOpacity="0.12" />
+            <Stop offset="100%" stopColor={pal.accent} stopOpacity="0"    />
           </LinearGradient>
 
-          {/* Clasp gradient */}
-          <LinearGradient id={`clasp${level}`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={pal.clasp1} />
-            <Stop offset="100%" stopColor={pal.clasp2} />
-          </LinearGradient>
+          {/* Ring track */}
+          <RadialGradient id={`rtrack${level}`} cx="50%" cy="50%" r="50%">
+            <Stop offset="0%"   stopColor={pal.accent} stopOpacity="0.08" />
+            <Stop offset="100%" stopColor={pal.accent} stopOpacity="0"    />
+          </RadialGradient>
 
-          {/* Card gradient */}
-          <LinearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0%" stopColor="#2050B0" />
-            <Stop offset="100%" stopColor="#1040A0" />
-          </LinearGradient>
-
-          {/* Slot shadow */}
-          <LinearGradient id="slot" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="rgba(0,0,0,0.4)" />
-            <Stop offset="100%" stopColor="rgba(0,0,0,0.15)" />
+          {/* Chip gradient */}
+          <LinearGradient id={`chip${level}`} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0%"   stopColor={pal.accent} stopOpacity="0.9" />
+            <Stop offset="100%" stopColor={pal.ring}   stopOpacity="0.5" />
           </LinearGradient>
         </Defs>
 
-        {/* Drop shadow approximation */}
-        <Rect
-          x={bX + 2}
-          y={bY + 6}
-          width={bW}
-          height={bH}
-          rx={bR}
-          fill="rgba(0,0,0,0.2)"
-        />
+        {/* ── Background ──────────────────────────────────────────────── */}
+        <Rect x="0" y="0" width={vW} height={vH} rx={bR} fill={`url(#bg${level})`} />
+        <Rect x="0" y="0" width={vW} height={vH} rx={bR} fill={`url(#orb1${level})`} />
+        <Rect x="0" y="0" width={vW} height={vH} rx={bR} fill={`url(#orb2${level})`} />
 
-        {/* Wallet body */}
-        <Rect x={bX} y={bY} width={bW} height={bH} rx={bR} fill={`url(#bg${level})`} />
-
-        {/* Top sheen */}
-        <Rect x={bX} y={bY} width={bW} height={bH / 2} rx={bR} fill="url(#sheen)" />
-
-        {/* Border/outline */}
-        <Rect
-          x={bX}
-          y={bY}
-          width={bW}
-          height={bH}
-          rx={bR}
-          fill="none"
-          stroke={pal.border}
-          strokeWidth={level >= 3 ? 1.5 : 1}
-        />
-
-        {/* Stitch dashed inner border */}
-        <Rect
-          x={bX + 6}
-          y={bY + 6}
-          width={bW - 12}
-          height={bH - 12}
-          rx={bR - 3}
-          fill="none"
-          stroke={`${pal.stitch}55`}
-          strokeWidth={0.8}
-          strokeDasharray="5,4"
-        />
-
-        {/* Fold crease line */}
-        <Line
-          x1={bX + 8}
-          y1={fY}
-          x2={bX + bW - 8}
-          y2={fY}
-          stroke={`${pal.body3}88`}
-          strokeWidth={0.8}
-        />
-
-        {/* Card slot */}
-        <Rect x={sX} y={sY} width={sW} height={sH} rx={sR} fill="url(#slot)" />
-        <Rect
-          x={sX}
-          y={sY}
-          width={sW}
-          height={sH}
-          rx={sR}
-          fill="none"
-          stroke={`${pal.clasp1}44`}
-          strokeWidth={0.8}
-        />
-
-        {/* Card in slot */}
-        {pal.card && (
-          <>
-            <Rect x={cX} y={cY} width={cW} height={cH} rx={cR} fill="url(#cardGrad)" opacity={0.92} />
-            {/* Card chip */}
-            <Rect x={cX + 8} y={cY + 6} width={14} height={10} rx={2} fill="#FFD70060" />
-            {/* Card stripe lines */}
-            <Line x1={cX + 8} y1={cY + 20} x2={cX + cW - 8} y2={cY + 20} stroke="rgba(255,255,255,0.2)" strokeWidth={2} />
-            <Line x1={cX + 8} y1={cY + 20} x2={cX + 40} y2={cY + 20} stroke="rgba(255,255,255,0.5)" strokeWidth={2} />
-          </>
+        {/* ── Grid lines (level 2+) ────────────────────────────────────── */}
+        {level >= 2 && (
+          <G opacity="0.1">
+            {Array.from({ length: Math.ceil(vW / gStep) + 1 }, (_, i) => (
+              <Line key={`v${i}`}
+                x1={i * gStep} y1="0" x2={i * gStep} y2={vH}
+                stroke={pal.accent} strokeWidth="0.6"
+              />
+            ))}
+            {Array.from({ length: Math.ceil(vH / gStep) + 1 }, (_, i) => (
+              <Line key={`h${i}`}
+                x1="0" y1={i * gStep} x2={vW} y2={i * gStep}
+                stroke={pal.accent} strokeWidth="0.6"
+              />
+            ))}
+          </G>
         )}
 
-        {/* Clasp / buckle */}
-        <Rect
-          x={clX}
-          y={clY}
-          width={clW}
-          height={clH}
-          rx={clR}
-          fill={`url(#clasp${level})`}
-        />
-        <Rect
-          x={clX}
-          y={clY}
-          width={clW}
-          height={clH}
-          rx={clR}
-          fill="none"
-          stroke={level >= 2 ? `${pal.clasp1}88` : '#70502099'}
-          strokeWidth={1}
-        />
-
-        {/* Pin hole */}
-        <Circle cx={bX + bW / 2} cy={fY} r={5} fill={`${pal.body3}cc`} />
-        <Circle cx={bX + bW / 2} cy={fY} r={3} fill="rgba(255,255,255,0.15)" />
-        <Circle
-          cx={bX + bW / 2}
-          cy={fY}
-          r={5}
-          fill="none"
-          stroke={`${pal.clasp1}66`}
-          strokeWidth={0.8}
-        />
-
-        {/* Level 4: shimmer streak */}
-        {level === 4 && (
-          <Rect
-            x={bX}
-            y={bY}
-            width={bW}
-            height={bH}
-            rx={bR}
-            fill="rgba(255,255,220,0.08)"
-          />
-        )}
-
-        {/* Level label — coin stack icons */}
+        {/* Circuit nodes (level 3+) */}
         {level >= 3 && (
-          <>
-            <Circle cx={30} cy={30} r={8} fill="#FFD700" opacity={0.85} />
-            <Circle cx={30} cy={30} r={5} fill="#FFF0A0" opacity={0.6} />
-            <Circle cx={44} cy={26} r={6} fill="#FFD700" opacity={0.7} />
-          </>
+          <G opacity="0.22">
+            {Array.from({ length: 4 }, (_, r) =>
+              Array.from({ length: 6 }, (_, c) => (
+                <Circle
+                  key={`n${r}${c}`}
+                  cx={(c + 1) * gStep * 0.85}
+                  cy={(r + 1) * gStep * 0.85}
+                  r="2" fill={pal.particle}
+                />
+              ))
+            )}
+          </G>
         )}
+
+        {/* ── Particles ─────────────────────────────────────────────────── */}
+        {[
+          {cx:40, cy:30, r:2.2, op:0.6},   {cx:80, cy:50, r:1.5, op:0.4},
+          {cx:130, cy:20, r:2.5, op:0.5},  {cx:180, cy:60, r:1.8, op:0.35},
+          {cx:240, cy:30, r:2,   op:0.55}, {cx:260, cy:80, r:1.2, op:0.3},
+          {cx:50,  cy:140,r:1.8, op:0.4},  {cx:160, cy:150,r:2.2, op:0.5},
+          {cx:220, cy:160,r:1.5, op:0.35}, {cx:110, cy:170,r:2,   op:0.45},
+        ].map((p, i) => (
+          <Circle key={i} cx={p.cx} cy={p.cy} r={p.r}
+            fill={pal.particle} opacity={p.op} />
+        ))}
+
+        {/* ── Shimmer band ──────────────────────────────────────────────── */}
+        <Rect x="0" y="0" width={vW} height={vH} rx={bR} fill="url(#shim)" />
+
+        {/* ── Border glow ───────────────────────────────────────────────── */}
+        <Rect
+          x="0.75" y="0.75" width={vW - 1.5} height={vH - 1.5} rx={bR}
+          fill="none" stroke={pal.accent} strokeWidth="1.5" opacity="0.6"
+        />
+
+        {/* ── Chip (SIM-style) ──────────────────────────────────────────── */}
+        <Rect x={chipX} y={chipY} width={chipW} height={chipH}
+          rx="4" fill={`url(#chip${level})`} />
+        {/* Chip grooves */}
+        <Line x1={chipX+chipW/2} y1={chipY+2}    x2={chipX+chipW/2} y2={chipY+chipH-2}
+          stroke={pal.bg0} strokeWidth="2" opacity="0.5" />
+        <Line x1={chipX+2}       y1={chipY+chipH/2} x2={chipX+chipW-2} y2={chipY+chipH/2}
+          stroke={pal.bg0} strokeWidth="2" opacity="0.5" />
+
+        {/* ── Progress ring ─────────────────────────────────────────────── */}
+        {/* Track */}
+        <Circle cx={ringCx} cy={ringCy} r={ringR}
+          fill="none" stroke={pal.accent} strokeWidth="5" opacity="0.15" />
+        {/* Fill */}
+        <Circle cx={ringCx} cy={ringCy} r={ringR}
+          fill="none" stroke={pal.ring} strokeWidth="5"
+          strokeDasharray={`${ringDash} ${ringCirc - ringDash}`}
+          strokeDashoffset={ringCirc * 0.25}
+          strokeLinecap="round" opacity="0.9"
+        />
+        {/* Center glyph */}
+        <SvgText
+          x={ringCx} y={ringCy + 6}
+          textAnchor="middle" fontSize="16"
+          fill={pal.accent} fontWeight="bold" opacity="0.9"
+        >
+          ◈
+        </SvgText>
+
+        {/* ── EKG pulse line ─────────────────────────────────────────────── */}
+        <Path
+          d={buildEKGPath(vW * 0.07, vH * 0.57, vW * 0.63, vH * 0.065)}
+          stroke={pal.accent} strokeWidth="1.4"
+          fill="none" opacity="0.7" strokeLinecap="round" strokeLinejoin="round"
+        />
+
+        {/* ── Level label ───────────────────────────────────────────────── */}
+        <SvgText
+          x={vW * 0.07} y={vH * 0.72}
+          fontSize="13" fontWeight="bold"
+          fill={pal.accent} opacity="0.95"
+        >
+          {`المستوى ${level} — ${LEVEL_NAMES[level]}`}
+        </SvgText>
+
+        {/* ── Dot row (card number placeholder) ─────────────────────────── */}
+        {Array.from({ length: 10 }, (_, i) => (
+          <Circle
+            key={`dot${i}`}
+            cx={vW * 0.07 + i * dotGap}
+            cy={dotY} r={dotR}
+            fill={pal.accent}
+            opacity={i < 3 ? 0.85 : 0.25}
+          />
+        ))}
       </Svg>
     </Animated.View>
   );
+}
+
+// ── EKG path builder ─────────────────────────────────────────────────────────
+function buildEKGPath(startX: number, baseY: number, totalW: number, amp: number): string {
+  const segments = 5;
+  const segW = totalW / segments;
+  let d = `M ${startX} ${baseY}`;
+
+  for (let i = 0; i < segments; i++) {
+    const x0 = startX + i * segW;
+    if (i === 2) {
+      // Spike segment
+      const mid = x0 + segW * 0.3;
+      d += ` L ${mid} ${baseY}`;
+      d += ` L ${mid + segW * 0.1} ${baseY - amp * 2.8}`;
+      d += ` L ${mid + segW * 0.2} ${baseY + amp * 1.2}`;
+      d += ` L ${mid + segW * 0.3} ${baseY}`;
+      d += ` L ${x0 + segW} ${baseY}`;
+    } else {
+      // Flat with gentle sine
+      const cpX = x0 + segW * 0.5;
+      const cpY = baseY + (i % 2 === 0 ? amp * 0.3 : -amp * 0.3);
+      d += ` Q ${cpX} ${cpY} ${x0 + segW} ${baseY}`;
+    }
+  }
+  return d;
 }

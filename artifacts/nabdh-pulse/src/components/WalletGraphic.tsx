@@ -2,24 +2,32 @@ import React, { useEffect, useRef } from "react";
 
 interface WalletGraphicProps {
   level: 1 | 2 | 3 | 4;
-  pulse?: boolean;           // breathing animation
+  pulse?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
 
-// Palette per level
-interface LevelPalette { body: string; shadow: string; stitch: string; clasp: string; glow: string | null; }
-const LEVELS: Record<1|2|3|4, LevelPalette> = {
-  1: { body: "#7B4F2E", shadow: "#4A2E10", stitch: "#A0724A", clasp: "#8B7355", glow: null },
-  2: { body: "#8B5E34", shadow: "#5A3518", stitch: "#B8875A", clasp: "#C8A830", glow: null },
-  3: { body: "#5C3318", shadow: "#3A1F0A", stitch: "#8B5E34", clasp: "#FFD700", glow: "rgba(255,215,0,0.25)" },
-  4: { body: "#8B6914", shadow: "#5A4008", stitch: "#FFE066", clasp: "#FFD700", glow: "rgba(255,215,0,0.5)" },
+interface Palette {
+  bg0: string; bg1: string; bg2: string;
+  accent: string; glow: string; ring: string;
+  particle: string; name: string;
+}
+
+const PALETTES: Record<1|2|3|4, Palette> = {
+  1: { bg0:"#0F172A", bg1:"#1E3A5F", bg2:"#1E40AF",   accent:"#60A5FA", glow:"rgba(96,165,250,0.55)",  ring:"#3B82F6", particle:"#93C5FD", name:"مبتدئة" },
+  2: { bg0:"#1A0533", bg1:"#4C1D95", bg2:"#7C3AED",   accent:"#A78BFA", glow:"rgba(167,139,250,0.55)", ring:"#8B5CF6", particle:"#C4B5FD", name:"نشطة"   },
+  3: { bg0:"#052E16", bg1:"#065F46", bg2:"#059669",   accent:"#34D399", glow:"rgba(52,211,153,0.55)",  ring:"#10B981", particle:"#6EE7B7", name:"ذهبية"   },
+  4: { bg0:"#1C1100", bg1:"#78350F", bg2:"#D97706",   accent:"#FCD34D", glow:"rgba(252,211,77,0.7)",   ring:"#F59E0B", particle:"#FDE68A", name:"فاخرة"   },
 };
 
-export function WalletGraphic({ level, pulse = true, className = "" }: WalletGraphicProps) {
+// Particle type
+interface Particle { x:number; y:number; vx:number; vy:number; r:number; a:number; va:number; }
+
+export function WalletGraphic({ level, pulse = true, className = "", style }: WalletGraphicProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const levelRef  = useRef(level);
   const rafRef    = useRef<number>(0);
+  const levelRef  = useRef(level);
+  const particles = useRef<Particle[]>([]);
 
   useEffect(() => { levelRef.current = level; }, [level]);
 
@@ -27,13 +35,25 @@ export function WalletGraphic({ level, pulse = true, className = "" }: WalletGra
     const canvas = canvasRef.current!;
     const ctx    = canvas.getContext("2d")!;
     let t = 0;
-    let prevLevel = levelRef.current;
-    let transition = 1;          // 0→1 while animating level change
 
     const resize = () => {
       canvas.width  = canvas.offsetWidth  * devicePixelRatio;
       canvas.height = canvas.offsetHeight * devicePixelRatio;
+      spawnParticles();
     };
+
+    function spawnParticles() {
+      const W = canvas.width, H = canvas.height;
+      particles.current = Array.from({ length: 28 }, () => ({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        r: Math.random() * 2.5 + 0.8,
+        a: Math.random(),
+        va: (Math.random() - 0.5) * 0.012,
+      }));
+    }
+
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
@@ -43,273 +63,129 @@ export function WalletGraphic({ level, pulse = true, className = "" }: WalletGra
       t += 0.016;
 
       const W = canvas.width, H = canvas.height;
-      const cx = W / 2, cy = H / 2;
-      const sc = Math.min(W, H);
+      const pal = PALETTES[levelRef.current];
 
       ctx.clearRect(0, 0, W, H);
 
-      // Animate level transitions
-      const curLevel = levelRef.current;
-      if (curLevel !== prevLevel) {
-        transition = 0;
-        prevLevel = curLevel;
-      }
-      if (transition < 1) transition = Math.min(1, transition + 0.04);
+      // ── Background mesh gradient ─────────────────────────────────────
+      const bgG = ctx.createLinearGradient(0, 0, W, H);
+      bgG.addColorStop(0, pal.bg0);
+      bgG.addColorStop(0.5, pal.bg1);
+      bgG.addColorStop(1, pal.bg2);
+      roundRectPath(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
+      ctx.fillStyle = bgG;
+      ctx.fill();
 
-      const pal = LEVELS[curLevel];
+      // ── Radial accent orb (top-left) ─────────────────────────────────
+      const orbR = W * 0.55 + Math.sin(t * 0.7) * W * 0.04;
+      const orbG = ctx.createRadialGradient(W * 0.15, H * 0.2, 0, W * 0.15, H * 0.2, orbR);
+      orbG.addColorStop(0, pal.bg2 + "88");
+      orbG.addColorStop(1, "transparent");
+      ctx.fillStyle = orbG;
+      ctx.fillRect(0, 0, W, H);
 
-      // Breathing scale
-      const breathe = pulse ? 1 + Math.sin(t * 1.4) * 0.015 : 1;
-      const scale   = sc * 0.55 * breathe;
+      // ── Second orb (bottom-right) ────────────────────────────────────
+      const orb2G = ctx.createRadialGradient(W * 0.85, H * 0.82, 0, W * 0.85, H * 0.82, W * 0.45);
+      orb2G.addColorStop(0, pal.accent + "44");
+      orb2G.addColorStop(1, "transparent");
+      ctx.fillStyle = orb2G;
+      ctx.fillRect(0, 0, W, H);
 
-      ctx.save();
-      ctx.translate(cx, cy);
+      // ── Grid / circuit lines ─────────────────────────────────────────
+      drawGrid(ctx, W, H, pal, t, levelRef.current);
 
-      // ── Level 4: golden outer glow ──────────────────────────────────────
-      if (curLevel >= 3 && pal.glow) {
-        const glowR = scale * 0.9;
-        const grd = ctx.createRadialGradient(0, 0, glowR * 0.2, 0, 0, glowR);
-        grd.addColorStop(0, pal.glow);
-        grd.addColorStop(1, "transparent");
-        ctx.fillStyle = grd;
+      // ── Particles ────────────────────────────────────────────────────
+      for (const p of particles.current) {
+        p.x += p.vx; p.y += p.vy;
+        p.a += p.va;
+        if (p.a < 0) p.a = 0.8;
+        if (p.a > 1) p.a = 0.2;
+        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
         ctx.beginPath();
-        ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = pal.particle + Math.round(p.a * 255).toString(16).padStart(2, "0");
         ctx.fill();
       }
 
-      // ── Wallet shadow ───────────────────────────────────────────────────
+      // ── Card body (subtle 3D tilt) ───────────────────────────────────
+      const tiltX = pulse ? Math.sin(t * 0.8) * 0.012 : 0;
+      const tiltY = pulse ? Math.cos(t * 0.6) * 0.008 : 0;
       ctx.save();
-      ctx.shadowColor = "rgba(0,0,0,0.35)";
-      ctx.shadowBlur  = scale * 0.12;
-      ctx.shadowOffsetY = scale * 0.08;
-      drawWalletBody(ctx, scale, pal, curLevel, t, transition);
+      ctx.transform(1, tiltY, tiltX, 1, 0, 0);
+
+      // Glow border
+      ctx.save();
+      ctx.shadowColor = pal.glow;
+      ctx.shadowBlur  = Math.min(W, H) * (0.06 + Math.sin(t * 1.2) * 0.02);
+      roundRectPath(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
+      ctx.strokeStyle = pal.accent + "99";
+      ctx.lineWidth   = 1.5 * devicePixelRatio;
+      ctx.stroke();
       ctx.restore();
 
-      // ── Wallet body ─────────────────────────────────────────────────────
-      drawWalletBody(ctx, scale, pal, curLevel, t, transition);
+      // ── Holographic shimmer band ──────────────────────────────────────
+      const shimPos = ((t * 0.28) % 1.6) - 0.3;
+      const shimX   = shimPos * W;
+      const shimW   = W * 0.25;
+      const shimG   = ctx.createLinearGradient(shimX - shimW, 0, shimX + shimW, 0);
+      shimG.addColorStop(0,   "transparent");
+      shimG.addColorStop(0.4, pal.accent + "22");
+      shimG.addColorStop(0.5, pal.accent + "55");
+      shimG.addColorStop(0.6, pal.accent + "22");
+      shimG.addColorStop(1,   "transparent");
+      roundRectPath(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
+      ctx.fillStyle = shimG;
+      ctx.fill();
 
-      // ── Level 3+: floating coins ────────────────────────────────────────
-      if (curLevel >= 3) {
-        const coinCount = curLevel === 4 ? 6 : 3;
-        for (let i = 0; i < coinCount; i++) {
-          const angle = (i / coinCount) * Math.PI * 2 + t * 0.4;
-          const r = scale * (0.62 + 0.08 * (i % 2));
-          const cx2 = Math.cos(angle) * r;
-          const cy2 = Math.sin(angle) * r * 0.5;
-          drawCoin(ctx, cx2, cy2, scale * 0.09, t + i * 1.5);
-        }
-      }
+      // ── Top-left: logo chip area ──────────────────────────────────────
+      const chipS = Math.min(W, H) * 0.14;
+      const chipX = W * 0.07, chipY = H * 0.12;
+      drawChip(ctx, chipX, chipY, chipS, pal);
 
-      // ── Level 4: sparkles ────────────────────────────────────────────────
-      if (curLevel === 4) {
-        for (let i = 0; i < 8; i++) {
-          const a = (i / 8) * Math.PI * 2 + t * 0.6;
-          const d = scale * (0.5 + 0.25 * Math.sin(t * 1.2 + i));
-          const sx = Math.cos(a) * d;
-          const sy = Math.sin(a) * d * 0.7;
-          const alpha = 0.5 + 0.5 * Math.sin(t * 2 + i * 0.8);
-          ctx.save();
-          ctx.globalAlpha = alpha;
-          drawSparkle(ctx, sx, sy, scale * 0.025);
-          ctx.restore();
-        }
-      }
+      // ── Circular progress ring ────────────────────────────────────────
+      const ringR  = Math.min(W, H) * 0.16;
+      const ringX  = W * 0.78, ringY = H * 0.38;
+      const pct    = levelRef.current / 4;
+      drawProgressRing(ctx, ringX, ringY, ringR, pct, pal, t);
+
+      // ── Wave line (EKG / pulse) ───────────────────────────────────────
+      drawPulseLine(ctx, W, H, pal, t);
+
+      // ── Level badge ───────────────────────────────────────────────────
+      const badgeX = W * 0.07, badgeY = H * 0.68;
+      ctx.font      = `bold ${H * 0.1}px "Tajawal", Arial`;
+      ctx.fillStyle = pal.accent;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor  = pal.glow;
+      ctx.shadowBlur   = 12;
+      ctx.fillText(`المستوى ${levelRef.current}`, badgeX, badgeY);
+      ctx.shadowBlur = 0;
+      ctx.textBaseline = "alphabetic";
+
+      // ── Dots row (like card number placeholder) ───────────────────────
+      drawDotRow(ctx, W * 0.07, H * 0.82, W, H, pal);
 
       ctx.restore();
     };
 
     rafRef.current = requestAnimationFrame(draw);
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-      ro.disconnect();
-    };
+    return () => { cancelAnimationFrame(rafRef.current); ro.disconnect(); };
   }, []); // eslint-disable-line
 
   return (
     <canvas
       ref={canvasRef}
       className={`w-full h-full ${className}`}
-      style={{ display: "block" }}
+      style={{ display: "block", borderRadius: "1rem", ...style }}
     />
   );
 }
 
-// ── Drawing helpers ────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-function drawWalletBody(
-  ctx: CanvasRenderingContext2D,
-  scale: number,
-  pal: typeof LEVELS[1],
-  level: 1 | 2 | 3 | 4,
-  t: number,
-  _transition: number
-) {
-  const w = scale * 1.1, h = scale * 0.72;
-  const r = scale * 0.1;   // corner radius
-
-  // Body gradient
-  const bodyG = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
-  if (level === 4) {
-    bodyG.addColorStop(0, "#C8A830");
-    bodyG.addColorStop(0.35, "#FFD700");
-    bodyG.addColorStop(0.65, "#E8C020");
-    bodyG.addColorStop(1, "#9A7010");
-  } else {
-    bodyG.addColorStop(0, lighten(pal.body, 30));
-    bodyG.addColorStop(0.5, pal.body);
-    bodyG.addColorStop(1, pal.shadow);
-  }
-
-  // Main rectangle
-  roundRect(ctx, -w / 2, -h / 2, w, h, r);
-  ctx.fillStyle = bodyG;
-  ctx.fill();
-
-  // Glossy top sheen
-  const sheenG = ctx.createLinearGradient(0, -h / 2, 0, 0);
-  sheenG.addColorStop(0, "rgba(255,255,255,0.22)");
-  sheenG.addColorStop(1, "rgba(255,255,255,0)");
-  roundRect(ctx, -w / 2, -h / 2, w, h * 0.5, r);
-  ctx.fillStyle = sheenG;
-  ctx.fill();
-
-  // Border / outline
-  roundRect(ctx, -w / 2, -h / 2, w, h, r);
-  ctx.strokeStyle = level >= 2 ? pal.clasp + "cc" : pal.stitch + "88";
-  ctx.lineWidth = scale * (level === 4 ? 0.025 : 0.018);
-  if (level === 4) {
-    ctx.shadowColor = "#FFD700";
-    ctx.shadowBlur  = scale * 0.12;
-  }
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  // Stitch lines (decorative border inside)
-  const pad = scale * 0.06;
-  roundRect(ctx, -w / 2 + pad, -h / 2 + pad, w - pad * 2, h - pad * 2, r * 0.6);
-  ctx.strokeStyle = pal.stitch + (level <= 2 ? "55" : "88");
-  ctx.lineWidth   = scale * 0.008;
-  ctx.setLineDash([scale * 0.03, scale * 0.025]);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Fold line (horizontal crease)
-  ctx.beginPath();
-  ctx.moveTo(-w / 2 + pad, 0);
-  ctx.lineTo(w / 2 - pad, 0);
-  ctx.strokeStyle = pal.shadow + "88";
-  ctx.lineWidth   = scale * 0.01;
-  ctx.stroke();
-
-  // ── Card slot on front ──────────────────────────────────────────────────
-  const slotW = w * 0.55, slotH = h * 0.28;
-  const slotX = w * 0.05, slotY = h * 0.08;
-  const slotR = scale * 0.04;
-
-  const slotG = ctx.createLinearGradient(slotX, slotY, slotX, slotY + slotH);
-  slotG.addColorStop(0, pal.shadow + "cc");
-  slotG.addColorStop(1, pal.shadow + "44");
-  roundRect(ctx, slotX, slotY, slotW, slotH, slotR);
-  ctx.fillStyle   = slotG; ctx.fill();
-  ctx.strokeStyle = pal.clasp + "55";
-  ctx.lineWidth   = scale * 0.01; ctx.stroke();
-
-  // Card visible inside slot
-  if (level >= 2) {
-    const cardH = slotH * 0.55;
-    roundRect(ctx, slotX + slotW * 0.06, slotY + slotH - cardH + slotH * 0.1, slotW * 0.88, cardH, slotR * 0.6);
-    const cardG = ctx.createLinearGradient(0, 0, slotW, 0);
-    cardG.addColorStop(0, level >= 3 ? "#2050b0" : "#2060b0");
-    cardG.addColorStop(1, level >= 3 ? "#1040a0cc" : "#1840a0cc");
-    ctx.fillStyle   = cardG; ctx.fill();
-    ctx.strokeStyle = "#ffffff22";
-    ctx.lineWidth   = scale * 0.008; ctx.stroke();
-  }
-
-  // ── Clasp / buckle ──────────────────────────────────────────────────────
-  const claspW = w * 0.28, claspH = h * 0.19;
-  const claspX = -claspW / 2, claspY = -claspH / 2 - h * 0.02;
-  const claspR = scale * 0.035;
-
-  const claspG = ctx.createLinearGradient(claspX, claspY, claspX, claspY + claspH);
-  if (level === 4) {
-    claspG.addColorStop(0, "#FFF0A0");
-    claspG.addColorStop(0.5, "#FFD700");
-    claspG.addColorStop(1, "#C8A000");
-  } else if (level >= 2) {
-    claspG.addColorStop(0, lighten(pal.clasp, 20));
-    claspG.addColorStop(1, pal.clasp);
-  } else {
-    claspG.addColorStop(0, "#9E8060");
-    claspG.addColorStop(1, "#6B5040");
-  }
-  roundRect(ctx, claspX, claspY, claspW, claspH, claspR);
-  ctx.fillStyle = claspG; ctx.fill();
-  ctx.strokeStyle = level >= 2 ? "#FFD70099" : "#70502099";
-  ctx.lineWidth   = scale * 0.015;
-  if (level === 4) { ctx.shadowColor = "#FFD700"; ctx.shadowBlur = scale * 0.1; }
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  // Clasp pin hole
-  ctx.beginPath();
-  ctx.arc(0, 0, scale * 0.035, 0, Math.PI * 2);
-  ctx.fillStyle   = pal.shadow + "cc"; ctx.fill();
-  ctx.strokeStyle = pal.clasp + "88";
-  ctx.lineWidth   = scale * 0.012; ctx.stroke();
-
-  // ── Level 4: animated shimmer ───────────────────────────────────────────
-  if (level === 4) {
-    const shimX = -w / 2 + (((t * 0.4) % 1.4) - 0.2) * (w + w * 0.4);
-    const shimG = ctx.createLinearGradient(shimX - scale * 0.15, 0, shimX + scale * 0.15, 0);
-    shimG.addColorStop(0, "transparent");
-    shimG.addColorStop(0.5, "rgba(255,255,220,0.35)");
-    shimG.addColorStop(1, "transparent");
-    roundRect(ctx, -w / 2, -h / 2, w, h, r);
-    ctx.fillStyle = shimG; ctx.fill();
-  }
-}
-
-function drawCoin(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, t: number) {
-  const tilt = Math.cos(t * 1.2) * 0.8;  // coin tilt makes it look 3D
-  const rx = r, ry = r * Math.abs(tilt);
-  if (ry < 1) return;
-
-  const coinG = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 0, cx, cy, r);
-  coinG.addColorStop(0, "#FFF0A0");
-  coinG.addColorStop(0.5, "#FFD700");
-  coinG.addColorStop(1, "#C8A000");
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fillStyle   = coinG; ctx.fill();
-  ctx.strokeStyle = "#C8A000cc";
-  ctx.lineWidth   = r * 0.08; ctx.stroke();
-
-  // $ symbol
-  ctx.font        = `bold ${r * 0.9}px Arial`;
-  ctx.fillStyle   = "#9A7010";
-  ctx.textAlign   = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("$", cx, cy + 1);
-  ctx.textBaseline = "alphabetic";
-}
-
-function drawSparkle(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI;
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a) * r * 2, cy + Math.sin(a) * r * 2);
-    ctx.lineTo(cx + Math.cos(a + Math.PI) * r * 2, cy + Math.sin(a + Math.PI) * r * 2);
-    ctx.strokeStyle = "#FFD700";
-    ctx.lineWidth   = r * 0.5;
-    ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.6, 0, Math.PI * 2);
-  ctx.fillStyle = "#FFF0A0"; ctx.fill();
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
@@ -323,10 +199,140 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function lighten(hex: string, amount: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.min(255, (num >> 16) + amount);
-  const g = Math.min(255, ((num >> 8) & 0xff) + amount);
-  const b = Math.min(255, (num & 0xff) + amount);
-  return `rgb(${r},${g},${b})`;
+function drawGrid(ctx: CanvasRenderingContext2D, W: number, H: number, pal: Palette, t: number, level: number) {
+  if (level < 2) return;
+  const step = W * 0.12;
+  ctx.save();
+  ctx.globalAlpha = 0.12 + 0.04 * Math.sin(t * 0.5);
+  ctx.strokeStyle = pal.accent;
+  ctx.lineWidth   = 0.5 * devicePixelRatio;
+
+  // Vertical lines
+  for (let x = 0; x < W; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  // Horizontal lines
+  for (let y = 0; y < H; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Circuit nodes at intersections (level 3+)
+  if (level >= 3) {
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = pal.particle;
+    for (let x = step; x < W; x += step * 2) {
+      for (let y = step; y < H; y += step * 2) {
+        ctx.beginPath();
+        ctx.arc(x, y, 2 * devicePixelRatio, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawChip(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, pal: Palette) {
+  // SIM chip look
+  const chipG = ctx.createLinearGradient(x, y, x + s, y + s * 0.7);
+  chipG.addColorStop(0, pal.accent + "cc");
+  chipG.addColorStop(1, pal.ring + "66");
+  roundRectPath(ctx, x, y, s, s * 0.7, s * 0.1);
+  ctx.fillStyle = chipG;
+  ctx.fill();
+
+  // Chip grooves
+  ctx.strokeStyle = pal.bg0 + "99";
+  ctx.lineWidth   = s * 0.07;
+  // Vertical center
+  ctx.beginPath(); ctx.moveTo(x + s * 0.5, y + s * 0.08); ctx.lineTo(x + s * 0.5, y + s * 0.62); ctx.stroke();
+  // Horizontal middle
+  ctx.beginPath(); ctx.moveTo(x + s * 0.1, y + s * 0.35); ctx.lineTo(x + s * 0.9, y + s * 0.35); ctx.stroke();
+}
+
+function drawProgressRing(
+  ctx: CanvasRenderingContext2D, cx: number, cy: number,
+  r: number, pct: number, pal: Palette, t: number
+) {
+  const start = -Math.PI / 2;
+  const end   = start + Math.PI * 2 * pct;
+
+  // Track
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = pal.accent + "22";
+  ctx.lineWidth   = r * 0.18;
+  ctx.stroke();
+
+  // Fill
+  ctx.save();
+  ctx.shadowColor = pal.glow;
+  ctx.shadowBlur  = r * 0.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, start, end);
+  ctx.strokeStyle = pal.ring;
+  ctx.lineWidth   = r * 0.18;
+  ctx.lineCap     = "round";
+  ctx.stroke();
+  ctx.restore();
+
+  // Dot at tip
+  const tipX = cx + Math.cos(end) * r;
+  const tipY = cy + Math.sin(end) * r;
+  ctx.beginPath();
+  ctx.arc(tipX, tipY, r * 0.14, 0, Math.PI * 2);
+  ctx.fillStyle = pal.accent;
+  ctx.fill();
+
+  // Center icon
+  const pulse = 1 + Math.sin(t * 2) * 0.08;
+  ctx.font      = `bold ${r * 0.55 * pulse}px Arial`;
+  ctx.fillStyle = pal.accent;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor  = pal.glow;
+  ctx.shadowBlur   = 10;
+  ctx.fillText("◈", cx, cy);
+  ctx.shadowBlur = 0;
+  ctx.textBaseline = "alphabetic";
+}
+
+function drawPulseLine(ctx: CanvasRenderingContext2D, W: number, H: number, pal: Palette, t: number) {
+  const y0 = H * 0.55;
+  const amp = H * 0.06;
+  const freq = W * 0.018;
+
+  ctx.save();
+  ctx.shadowColor = pal.glow;
+  ctx.shadowBlur  = 8;
+  ctx.strokeStyle = pal.accent + "bb";
+  ctx.lineWidth   = 1.2 * devicePixelRatio;
+  ctx.beginPath();
+
+  for (let x = 0; x <= W * 0.65; x += 2) {
+    const phase = x / freq - t * 3;
+    // EKG-style: mostly flat with sharp spike
+    let dy = 0;
+    const mod = ((phase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    if (mod > 1.5 && mod < 2.5) {
+      dy = -amp * 2.5 * Math.sin((mod - 1.5) * Math.PI);
+    } else if (mod > 2.5 && mod < 3.2) {
+      dy = amp * 1.2 * Math.sin((mod - 2.5) * Math.PI / 0.7);
+    } else {
+      dy = amp * 0.15 * Math.sin(phase * 0.5);
+    }
+    if (x === 0) ctx.moveTo(x, y0 + dy);
+    else ctx.lineTo(x, y0 + dy);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawDotRow(ctx: CanvasRenderingContext2D, x: number, y: number, W: number, H: number, pal: Palette) {
+  const r = H * 0.022, gap = H * 0.065;
+  for (let i = 0; i < 12; i++) {
+    ctx.beginPath();
+    ctx.arc(x + i * gap, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = i < 4 ? pal.accent + "dd" : pal.accent + "44";
+    ctx.fill();
+  }
 }

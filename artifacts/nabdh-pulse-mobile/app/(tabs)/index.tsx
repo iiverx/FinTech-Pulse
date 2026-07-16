@@ -66,12 +66,15 @@ function useAnimatedNumber(target: number) {
 export default function WalletScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { state, level, progressPct, reset, depositCount, setGoal } = useSavingsWallet();
+  const { state, level, progressPct, reset, depositCount, setGoal, addSaving } = useSavingsWallet();
 
   const [animActive, setAnimActive] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [goalInput, setGoalInput] = useState('');
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositInput, setDepositInput] = useState('');
+  const [depositNote, setDepositNote] = useState('');
   const prevPct = useRef(progressPct);
   const prevDepositCount = useRef(depositCount);
 
@@ -255,6 +258,151 @@ export default function WalletScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* ── FAB ───────────────────────────────────────────────────────── */}
+      <TouchableOpacity
+        onPress={() => { setDepositInput(''); setDepositNote(''); setShowDepositModal(true); }}
+        style={[
+          styles.fab,
+          {
+            backgroundColor: colors.primary,
+            bottom: (Platform.OS === 'web' ? 34 : insets.bottom) + 80,
+          },
+        ]}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      {/* ── Deposit bottom sheet ───────────────────────────────────────── */}
+      <Modal
+        visible={showDepositModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDepositModal(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowDepositModal(false)} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalWrapper}
+        >
+          <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.muted }]} />
+
+            {/* Header */}
+            <View style={styles.sheetHeader}>
+              <TouchableOpacity
+                onPress={() => setShowDepositModal(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={22} color={colors.mutedForeground} />
+              </TouchableOpacity>
+              <Text style={[styles.sheetTitle, { color: colors.foreground, fontFamily: 'Tajawal_800ExtraBold' }]}>
+                أضف توفيرًا
+              </Text>
+              <View style={styles.sheetTrophy}>
+                <Ionicons name="wallet-outline" size={22} color={colors.primary} />
+              </View>
+            </View>
+
+            {/* Amount input */}
+            <Text style={[styles.inputLabel, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>
+              المبلغ (ر.س)
+            </Text>
+            <TextInput
+              value={depositInput}
+              onChangeText={setDepositInput}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.mutedForeground}
+              style={[
+                styles.amountInput,
+                {
+                  color: colors.foreground,
+                  borderColor: colors.primary + '66',
+                  backgroundColor: colors.background,
+                  fontFamily: 'Tajawal_800ExtraBold',
+                },
+              ]}
+              textAlign="center"
+              autoFocus
+            />
+
+            {/* Quick-amount chips */}
+            <Text style={[styles.presetsLabel, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>
+              مبالغ سريعة
+            </Text>
+            <View style={styles.presetsRow}>
+              {[100, 250, 500, 1000].map((preset) => (
+                <TouchableOpacity
+                  key={preset}
+                  onPress={() => setDepositInput(String(preset))}
+                  style={[
+                    styles.presetChip,
+                    {
+                      borderColor: depositInput === String(preset) ? colors.primary : colors.muted,
+                      backgroundColor: depositInput === String(preset) ? colors.primary + '18' : colors.background,
+                    },
+                  ]}
+                >
+                  <Text style={[
+                    styles.presetText,
+                    { color: depositInput === String(preset) ? colors.primary : colors.mutedForeground, fontFamily: 'Tajawal_700Bold' },
+                  ]}>
+                    {fmt(preset)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Optional note */}
+            <Text style={[styles.inputLabel, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>
+              ملاحظة (اختياري)
+            </Text>
+            <TextInput
+              value={depositNote}
+              onChangeText={setDepositNote}
+              placeholder="مثال: توفير أسبوعي"
+              placeholderTextColor={colors.mutedForeground}
+              style={[
+                styles.noteInput,
+                {
+                  color: colors.foreground,
+                  borderColor: colors.muted,
+                  backgroundColor: colors.background,
+                  fontFamily: 'Tajawal_400Regular',
+                },
+              ]}
+              textAlign="right"
+              returnKeyType="done"
+            />
+
+            {/* Confirm */}
+            <TouchableOpacity
+              onPress={() => {
+                const amt = parseFloat(depositInput);
+                if (amt > 0) { addSaving(amt, depositNote.trim() || undefined); }
+                setShowDepositModal(false);
+              }}
+              disabled={!depositInput || parseFloat(depositInput) <= 0}
+              style={[
+                styles.confirmBtn,
+                {
+                  backgroundColor: colors.secondary ?? colors.primary,
+                  opacity: (!depositInput || parseFloat(depositInput) <= 0) ? 0.4 : 1,
+                },
+              ]}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color="#fff" style={{ marginLeft: 6 }} />
+              <Text style={[styles.confirmBtnText, { fontFamily: 'Tajawal_800ExtraBold' }]}>
+                أضف إلى المحفظة
+              </Text>
+            </TouchableOpacity>
+
+            <View style={{ height: Platform.OS === 'web' ? 16 : insets.bottom + 8 }} />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* ── Goal-setting bottom sheet ──────────────────────────────────── */}
       <Modal
@@ -585,7 +733,35 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row-reverse',
+    gap: 6,
     marginBottom: 8,
   },
   confirmBtnText: { color: '#fff', fontSize: 18 },
+  // ── Note input ────────────────────────────────────────────────────────
+  noteInput: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    marginBottom: 20,
+  },
+  // ── FAB ───────────────────────────────────────────────────────────────
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 10,
+  },
 });

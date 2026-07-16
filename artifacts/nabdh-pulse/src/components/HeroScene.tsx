@@ -318,19 +318,6 @@ export function HeroScene() {
       ctx.fillStyle = groundG;
       ctx.fillRect(0, 0, W, H);
 
-      // Platform
-      const platR = scale * 0.14;
-      const platY = cy + scale * 0.22;
-      for (let p = 3; p >= 0; p--) {
-        const pr = platR * (1 + p * 0.15);
-        const pg2 = ctx.createLinearGradient(cx - pr, platY, cx + pr, platY + 12);
-        pg2.addColorStop(0, `rgba(0,180,80,${0.14 - p * 0.03})`);
-        pg2.addColorStop(1, `rgba(0,60,30,${0.22 - p * 0.04})`);
-        ctx.beginPath(); ctx.ellipse(cx, platY, pr, pr * 0.25, 0, 0, Math.PI * 2);
-        ctx.fillStyle = pg2; ctx.fill();
-        ctx.strokeStyle = `rgba(0,255,100,${0.22 - p * 0.05})`;
-        ctx.lineWidth = 1; ctx.stroke();
-      }
 
       // Energy streams — reduced segments: 10 instead of 20
       const heartR = scale * 0.155;

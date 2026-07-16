@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Logo } from "@/components/Logo";
-import { WalletGraphic } from "@/components/WalletGraphic";
 import { CoinAnimation } from "@/components/CoinAnimation";
 import { useSavingsWallet } from "@/hooks/useSavingsWallet";
 import {
@@ -257,7 +256,18 @@ export default function SavingsPage() {
               className="relative bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl shadow-xl overflow-hidden"
               style={{ minHeight: 320 }}
             >
-              <WalletGraphic level={level} pulse className="w-full" style={{ height: 320 }} />
+              {/* Static wallet illustration */}
+              <div className={`w-full flex items-center justify-center bg-gradient-to-br ${LEVEL_COLORS[level]}`} style={{ height: 320 }}>
+                <svg width="140" height="110" viewBox="0 0 140 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="4" y="20" width="132" height="82" rx="12" fill="rgba(0,0,0,0.35)" />
+                  <rect x="0" y="16" width="132" height="82" rx="12" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" />
+                  <rect x="0" y="16" width="132" height="34" rx="12" fill="rgba(255,255,255,0.08)" />
+                  <rect x="86" y="38" width="46" height="36" rx="8" fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                  <circle cx="109" cy="56" r="8" fill="rgba(255,255,255,0.25)" />
+                  <rect x="12" y="72" width="60" height="8" rx="4" fill="rgba(255,255,255,0.15)" />
+                  <rect x="12" y="86" width="40" height="6" rx="3" fill="rgba(255,255,255,0.1)" />
+                </svg>
+              </div>
               <CoinAnimation
                 active={animActive}
                 amount={animAmt}

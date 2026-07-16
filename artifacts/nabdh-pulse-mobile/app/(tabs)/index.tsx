@@ -7,15 +7,13 @@ import {
   TouchableOpacity,
   Platform,
   Dimensions,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
 import { useSavingsWallet, walletLevel } from '@/context/SavingsWalletContext';
 import { WalletGraphic } from '@/components/WalletGraphic';
@@ -68,10 +66,12 @@ function useAnimatedNumber(target: number) {
 export default function WalletScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { state, level, progressPct, reset, depositCount } = useSavingsWallet();
+  const { state, level, progressPct, reset, depositCount, setGoal } = useSavingsWallet();
 
   const [animActive, setAnimActive] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [goalInput, setGoalInput] = useState('');
   const prevPct = useRef(progressPct);
   const prevDepositCount = useRef(depositCount);
 
@@ -177,9 +177,24 @@ export default function WalletScreen() {
                 هدف الادخار
               </Text>
             </View>
-            <Text style={[styles.pctText, { color: colors.primary, fontFamily: 'Tajawal_800ExtraBold' }]}>
-              {progressPct}%
-            </Text>
+            <View style={styles.row}>
+              <Text style={[styles.pctText, { color: colors.primary, fontFamily: 'Tajawal_800ExtraBold' }]}>
+                {progressPct}%
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setGoalInput(String(state.goal));
+                  setShowGoalModal(true);
+                }}
+                style={[styles.editBtn, { backgroundColor: colors.muted }]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="pencil-outline" size={14} color={colors.mutedForeground} />
+                <Text style={[styles.editBtnText, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>
+                  تعديل
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
             <View
@@ -240,6 +255,123 @@ export default function WalletScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* ── Goal-setting bottom sheet ──────────────────────────────────── */}
+      <Modal
+        visible={showGoalModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowGoalModal(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowGoalModal(false)} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalWrapper}
+        >
+          <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+            {/* Handle bar */}
+            <View style={[styles.sheetHandle, { backgroundColor: colors.muted }]} />
+
+            {/* Header */}
+            <View style={styles.sheetHeader}>
+              <TouchableOpacity
+                onPress={() => setShowGoalModal(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={22} color={colors.mutedForeground} />
+              </TouchableOpacity>
+              <Text style={[styles.sheetTitle, { color: colors.foreground, fontFamily: 'Tajawal_800ExtraBold' }]}>
+                حدد هدفك
+              </Text>
+              <View style={styles.sheetTrophy}>
+                <Ionicons name="trophy" size={22} color="#F59E0B" />
+              </View>
+            </View>
+
+            {/* Amount input */}
+            <Text style={[styles.inputLabel, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>
+              مبلغ الهدف (ر.س)
+            </Text>
+            <TextInput
+              value={goalInput}
+              onChangeText={setGoalInput}
+              keyboardType="numeric"
+              placeholder="أدخل مبلغ الهدف"
+              placeholderTextColor={colors.mutedForeground}
+              style={[
+                styles.amountInput,
+                {
+                  color: colors.foreground,
+                  borderColor: colors.primary + '66',
+                  backgroundColor: colors.background,
+                  fontFamily: 'Tajawal_800ExtraBold',
+                },
+              ]}
+              textAlign="center"
+              autoFocus
+            />
+
+            {/* Quick presets */}
+            <Text style={[styles.presetsLabel, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>
+              اختر مبلغًا سريعًا
+            </Text>
+            <View style={styles.presetsRow}>
+              {[1000, 5000, 10000].map((preset) => (
+                <TouchableOpacity
+                  key={preset}
+                  onPress={() => setGoalInput(String(preset))}
+                  style={[
+                    styles.presetChip,
+                    {
+                      borderColor: goalInput === String(preset) ? colors.primary : colors.muted,
+                      backgroundColor: goalInput === String(preset) ? colors.primary + '18' : colors.background,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.presetText,
+                      {
+                        color: goalInput === String(preset) ? colors.primary : colors.mutedForeground,
+                        fontFamily: 'Tajawal_700Bold',
+                      },
+                    ]}
+                  >
+                    {fmt(preset)}
+                  </Text>
+                  <Text style={[styles.presetSar, { color: goalInput === String(preset) ? colors.primary : colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>
+                    {' '}ر.س
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Confirm button */}
+            <TouchableOpacity
+              onPress={() => {
+                const g = parseFloat(goalInput);
+                if (g > 0) { setGoal(g); }
+                setShowGoalModal(false);
+              }}
+              disabled={!goalInput || parseFloat(goalInput) <= 0}
+              style={[
+                styles.confirmBtn,
+                {
+                  backgroundColor: colors.primary,
+                  opacity: (!goalInput || parseFloat(goalInput) <= 0) ? 0.4 : 1,
+                },
+              ]}
+            >
+              <Text style={[styles.confirmBtnText, { fontFamily: 'Tajawal_800ExtraBold' }]}>
+                حفظ الهدف
+              </Text>
+            </TouchableOpacity>
+
+            {/* Bottom safe area spacer */}
+            <View style={{ height: Platform.OS === 'web' ? 16 : insets.bottom + 8 }} />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -370,4 +502,90 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   resetText: { fontSize: 12 },
+  // ── Goal edit button ───────────────────────────────────────────────────
+  editBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  editBtnText: { fontSize: 12 },
+  // ── Goal modal / bottom sheet ─────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  modalWrapper: {
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  sheetTitle: { fontSize: 20, textAlign: 'center', flex: 1 },
+  sheetTrophy: { width: 30, alignItems: 'flex-end' },
+  inputLabel: {
+    fontSize: 13,
+    textAlign: 'right',
+    marginBottom: 8,
+  },
+  amountInput: {
+    borderWidth: 2,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 32,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  presetsLabel: {
+    fontSize: 13,
+    textAlign: 'right',
+    marginBottom: 10,
+  },
+  presetsRow: {
+    flexDirection: 'row-reverse',
+    gap: 10,
+    marginBottom: 20,
+  },
+  presetChip: {
+    flex: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  presetText: { fontSize: 16 },
+  presetSar: { fontSize: 12 },
+  confirmBtn: {
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  confirmBtnText: { color: '#fff', fontSize: 18 },
 });

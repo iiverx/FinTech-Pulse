@@ -1,0 +1,1 @@
+- [Nabd Backend Architecture](nabd-backend.md) — full backend built; connect-pg-simple must stay external in esbuild or sessions break

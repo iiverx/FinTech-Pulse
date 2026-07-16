@@ -1,0 +1,531 @@
+[7/16/2026 7:02 PM] .: Build a complete Backend for a FinTech project called "Nabd | Pulse".
+
+Project idea:
+Nabd is a smart financial platform that helps individuals understand their financial health by converting complex financial data into a simple score from 0 to 100 called the "Financial Pulse Score".
+
+The score measures the user’s financial health on a daily basis based on income, expenses, obligations, budget, saving goals, spending behavior, and financial decisions. The platform also provides smart alerts, predictions, recommendations, and simulations to help users make better financial decisions.
+
+The Front-end of the project includes:
+- Landing Page
+- Login / Sign Up
+- User financial data onboarding
+- Bank account connection or demo data option
+- Data analysis loading screen
+- First Financial Pulse Score result page
+- Dashboard that includes:
+  - Financial Pulse Score from 0 to 100
+  - Financial summary
+  - Smart financial calculator
+  - Smart notifications
+  - Financial prediction
+  - Purchase decision simulation
+  - AI financial assistant
+  - Nabd community comparison
+  - Reports and charts
+
+The Backend must fully support all these features.
+
+Suggested technologies:
+- Node.js
+- Express.js
+- PostgreSQL or MongoDB
+- JWT Authentication
+- bcrypt for password hashing
+- REST API
+- Middleware for API protection
+- Environment Variables for secret keys
+- Clean and scalable project structure
+
+Main Backend Requirements:
+
+1. Authentication System
+
+Create APIs for:
+- User registration
+- User login
+- User logout
+- User verification using JWT
+- Password reset
+- Email verification
+- Password hashing using bcrypt
+- Never store passwords as plain text
+
+User fields:
+- user_id
+- full_name
+- email
+- phone
+- password_hash
+- city
+- age
+- marital_status
+- housing_type
+- dependents_count
+- created_at
+- updated_at
+
+2. User Financial Data
+
+Create APIs to save and update:
+- Monthly salary
+- Salary day
+- Extra income
+- Monthly obligations
+- Budget by category
+- Financial goals
+- Demo bank data
+
+Suggested tables or collections:
+
+Income:
+- user_id
+- monthly_salary
+- salary_day
+- has_extra_income
+- extra_income_amount
+
+Obligations:
+- user_id
+- type
+- amount
+- due_date
+- is_recurring
+
+Budget:
+- user_id
+- category
+- monthly_limit
+- current_spending
+
+Goals:
+- user_id
+- goal_type
+- target_amount
+- current_amount
+- deadline
+- monthly_required_amount
+
+3. Financial Transactions
+
+Create APIs to add, update, delete, and retrieve financial transactions.
+
+Each transaction should include:
+- transaction_id
+- user_id
+- type: income or expense
+- category
+- amount
+- description
+- transaction_date
+- payment_method
+- source
+- created_at
+
+Suggested categories:
+- Food and restaurants
+- Transportation
+- Shopping
+- Entertainment
+- Bills
+- Health
+- Education
+- Subscriptions
+- Obligations
+- Other
+
+4. Financial Pulse Score
+
+Create a Backend service that calculates the Financial Pulse Score from 0 to 100.
+
+The score should be calculated based on:
+- Spending compared to income
+- Budget commitment
+- Saving growth
+- Regular payment of obligations
+- Spending behavior and impulsive decisions
+- Financial goals progress
+
+Suggest an initial formula, for example:
+- 25% spending compared to income
+- 20% budget commitment
+- 20% saving growth
+- 15% obligations payment regularity
+- 10% spending behavior
+- 10% goals progress
+
+The output should include:
+- score from 0 to 100
+- status such as:
+  - Excellent
+  - Financially stable
+  - Needs attention
+  - Risky
+- strengths
+- areas for improvement
+- short recommendations
+
+Save each daily score in a table:
+
+FinancialPulse:
+- user_id
+- score
+- status
+- spending_income_ratio
+- budget_commitment
+- saving_growth
+- obligations_score
+- behavior_score
+- goals_score
+- created_at
+
+5. Smart Financial Calculator
+
+Create an API that calculates the safe daily spending amount.
+
+The calculation should depend on:
+- Monthly salary
+- Extra income
+- Monthly obligations
+- Saving goals
+- Remaining days until next salary
+- Remaining budget
+
+The output should include:
+- safe_daily_spending
+- explanation
+- warning if current spending is high
+[7/16/2026 7:02 PM] .: Example output:
+"The safe daily spending amount is 64 SAR after calculating your obligations and saving goals."
+
+6. Smart Notifications
+
+Create a notification system based on the user’s financial behavior.
+
+Notification examples:
+- You are close to exceeding your food budget.
+- Your restaurant spending increased by 22%.
+- You have an unused subscription for 3 months.
+- You can save 240 SAR this month.
+- A new transaction has been recorded.
+- A financial obligation due date is approaching.
+
+Notifications table:
+- notification_id
+- user_id
+- title
+- message
+- type
+- is_read
+- created_at
+
+Create APIs to:
+- Get notifications
+- Mark a notification as read
+- Delete a notification
+- Automatically create notifications when a financial condition is met
+
+If the website supports Web Push Notifications, prepare the backend for it as an optional feature.
+
+7. Email Service
+
+Add an email service using Nodemailer or another suitable service.
+
+Required emails:
+- Email verification
+- Password reset
+- Important financial alerts
+- Weekly financial summary
+
+8. Reports and Charts
+
+Create APIs that return data ready to be displayed as charts in the Front-end.
+
+Required reports:
+- Spending by category
+- Spending during the last 7 days
+- Financial Pulse Score trend during the month
+- Income vs expenses
+- Saving goals progress
+- Upcoming obligations
+
+Each endpoint should return clear JSON that is easy to use in the Front-end.
+
+9. AI Financial Assistant
+
+Create an API:
+
+POST /api/assistant/ask
+
+It receives a user question such as:
+"Can I buy this now?"
+
+Then it analyzes:
+- Current Financial Pulse Score
+- Purchase amount
+- Remaining budget
+- Saving goals
+- Upcoming obligations
+
+It should return a smart response such as:
+"If you buy this now, your Financial Pulse Score will decrease from 78 to 72. It is better to delay the purchase for 5 days to protect your saving goal."
+
+The first version can be rule-based, but the code should be prepared for future integration with an AI model or OpenAI API.
+
+10. Purchase Decision Simulation
+
+Create an API:
+
+POST /api/simulation/purchase
+
+Input:
+- user_id
+- amount
+- category
+
+Output:
+- current_score
+- predicted_score_after_purchase
+- impact_level
+- recommendation
+
+Example:
+Input:
+Purchase amount: 350 SAR
+
+Output:
+- Current score: 78
+- Predicted score after purchase: 72
+- Impact: Medium
+- Recommendation: It is better to delay the purchase for 5 days.
+
+11. Nabd Community
+
+Create an API for anonymous comparison.
+
+The idea:
+Compare the user’s financial performance with similar users based on:
+- Age
+- City
+- Income
+- Marital status
+
+Without showing or sharing any personal data.
+
+Output:
+- user_score
+- similar_users_average
+- top_10_percent_score
+- privacy_note
+
+Example:
+- You: 78
+- Similar users average: 71
+- Top 10%: 88
+
+Important:
+Never expose names or personal information of other users.
+
+12. Activity History
+
+Save important user activity logs, such as:
+- Login
+- Updating financial data
+- Adding a transaction
+- Calculating a new Financial Pulse Score
+- Running a purchase simulation
+- Reading a notification
+
+ActivityLog table:
+- log_id
+- user_id
+- action
+- description
+- created_at
+
+13. Optional File Upload
+
+Add optional file upload support for future use, such as:
+- Bank statement
+- Receipt image
+- CSV transaction file
+
+Use:
+- Multer
+- Local storage or Cloud Storage
+- File type and size validation
+
+14. Security Requirements
+
+Apply:
+- JWT Authentication
+- Protected routes middleware
+- Password hashing
+- Rate limiting
+- Proper CORS configuration for the Front-end
+- Helmet
+- Input validation
+- Input sanitization
+- Secret keys must never be exposed
+- Use .env for environment variables
+- Do not return sensitive data in API responses
+
+15. Required Project Structure
+
+Use a clean and scalable structure like:
+
+backend/
+  src/
+    config/
+[7/16/2026 7:02 PM] .: db.js
+      env.js
+    models/
+      User.js
+      Income.js
+      Transaction.js
+      Budget.js
+      Goal.js
+      Notification.js
+      FinancialPulse.js
+    routes/
+      auth.routes.js
+      user.routes.js
+      finance.routes.js
+      pulse.routes.js
+      notification.routes.js
+      reports.routes.js
+      assistant.routes.js
+      simulation.routes.js
+      community.routes.js
+    controllers/
+      auth.controller.js
+      user.controller.js
+      finance.controller.js
+      pulse.controller.js
+      notification.controller.js
+      reports.controller.js
+      assistant.controller.js
+      simulation.controller.js
+      community.controller.js
+    services/
+      pulse.service.js
+      finance.service.js
+      notification.service.js
+      email.service.js
+      assistant.service.js
+      report.service.js
+    middlewares/
+      auth.middleware.js
+      error.middleware.js
+      validation.middleware.js
+    utils/
+      calculatePulseScore.js
+      calculateSafeDailySpending.js
+      generateRecommendations.js
+    app.js
+    server.js
+  .env
+  package.json
+  README.md
+
+16. Required Endpoints
+
+Authentication:
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/logout
+POST /api/auth/forgot-password
+POST /api/auth/reset-password
+POST /api/auth/verify-email
+
+User:
+GET /api/users/me
+PUT /api/users/me
+DELETE /api/users/me
+
+Finance:
+POST /api/finance/income
+GET /api/finance/income
+PUT /api/finance/income
+
+POST /api/finance/obligations
+GET /api/finance/obligations
+PUT /api/finance/obligations/:id
+DELETE /api/finance/obligations/:id
+
+POST /api/finance/budget
+GET /api/finance/budget
+PUT /api/finance/budget/:id
+
+POST /api/finance/goals
+GET /api/finance/goals
+PUT /api/finance/goals/:id
+DELETE /api/finance/goals/:id
+
+Transactions:
+POST /api/transactions
+GET /api/transactions
+GET /api/transactions/:id
+PUT /api/transactions/:id
+DELETE /api/transactions/:id
+
+Pulse:
+GET /api/pulse/current
+POST /api/pulse/calculate
+GET /api/pulse/history
+
+Safe Spending:
+GET /api/finance/safe-daily-spending
+
+Notifications:
+GET /api/notifications
+PUT /api/notifications/:id/read
+DELETE /api/notifications/:id
+
+Reports:
+GET /api/reports/spending-by-category
+GET /api/reports/weekly-spending
+GET /api/reports/pulse-trend
+GET /api/reports/income-vs-expense
+GET /api/reports/goals-progress
+
+Simulation:
+POST /api/simulation/purchase
+
+Assistant:
+POST /api/assistant/ask
+
+Community:
+GET /api/community/compare
+
+17. Seed Data
+
+Create demo data so the project works immediately.
+
+Demo user:
+- Name: Sara
+- Monthly salary: 7,500 SAR
+- Current spending: 3,920 SAR
+- Obligations: 1,200 SAR
+- Saving goal: 500 SAR
+- Financial Pulse Score: 78/100
+- Status: Financially stable
+
+18. Final Deliverable
+
+I want a complete Backend project or a clear implementation plan that includes:
+- Project setup
+- Package installation
+- Database setup
+- Tables or models creation
+- Routes, controllers, and services
+- Authentication system
+- Financial Pulse Score calculation
+- Smart financial calculator
+- Smart notifications
+- Reports
+- Purchase simulation
+- AI financial assistant
+- Easy connection with the Front-end
+- README file explaining how to run the project
+
+The code should be clean, organized, scalable, and suitable for a FinTech hackathon or graduation project.

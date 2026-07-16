@@ -24,19 +24,20 @@ import {
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+// Static data — defined once outside the component, never recreated on re-render
+const forecastData = [
+  { day: "اليوم", score: 78 },
+  { day: "غدًا", score: 77 },
+  { day: "بعد يومين", score: 75 },
+  { day: "3 أيام", score: 74 },
+  { day: "4 أيام", score: 72 },
+  { day: "5 أيام", score: 72 },
+  { day: "6 أيام", score: 73 },
+];
+
 export default function DashboardPage() {
   const [simulationAmount, setSimulationAmount] = useState("");
   const [chatMessage, setChatMessage] = useState("");
-
-  const forecastData = [
-    { day: "اليوم", score: 78 },
-    { day: "غدًا", score: 77 },
-    { day: "بعد يومين", score: 75 },
-    { day: "3 أيام", score: 74 },
-    { day: "4 أيام", score: 72 },
-    { day: "5 أيام", score: 72 },
-    { day: "6 أيام", score: 73 }
-  ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex" dir="rtl">

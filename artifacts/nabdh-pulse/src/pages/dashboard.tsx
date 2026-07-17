@@ -504,13 +504,42 @@ function SectionSimulation() {
   );
 }
 
+interface FinCtx {
+  score?: number; status?: string; monthlyIncome?: number;
+  thisMonthExpenses?: number; totalSavings?: number;
+  remaining?: number; savingRate?: number; spendingRate?: number;
+}
+
+function ContextBar({ ctx }: { ctx: FinCtx }) {
+  if (!ctx.monthlyIncome) return null;
+  const items = [
+    { label: "النبض", value: `${ctx.score}/100`, sub: ctx.status },
+    { label: "الدخل", value: `${ctx.monthlyIncome?.toLocaleString()} ر.س` },
+    { label: "الإنفاق", value: `${ctx.thisMonthExpenses?.toLocaleString()} ر.س`, sub: `${ctx.spendingRate}%` },
+    { label: "المدخرات", value: `${ctx.totalSavings?.toLocaleString()} ر.س` },
+    { label: "المتاح", value: `${ctx.remaining?.toLocaleString()} ر.س` },
+  ];
+  return (
+    <div className="flex flex-wrap gap-2 mb-3">
+      {items.map(it => (
+        <div key={it.label} className="flex flex-col items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 min-w-[70px]">
+          <span className="text-[10px] text-slate-400 font-semibold" style={{ fontFamily: "Tajawal, sans-serif" }}>{it.label}</span>
+          <span className="text-xs font-black text-slate-800" style={{ fontFamily: "Cairo, sans-serif" }}>{it.value}</span>
+          {it.sub && <span className="text-[10px] text-primary">{it.sub}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SectionAssistant() {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
-  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([
-    { from: "bot", text: "مرحباً! أنا مساعدك المالي الذكي. اسألني عن ميزانيتك، ادخارك، التزاماتك، أو أي قرار مالي تريد مشورة فيه." },
+  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string; streaming?: boolean }[]>([
+    { from: "bot", text: "مرحباً! أنا مساعدك المالي، أعرف كل تفاصيل وضعك المالي — دخلك، مصروفاتك، مدخراتك، والتزاماتك. اسألني أي سؤال وسأعطيك إجابة بالأرقام الحقيقية." },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [finCtx, setFinCtx] = useState<FinCtx>({});
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
@@ -520,6 +549,10 @@ function SectionAssistant() {
     setInput("");
     setMessages(m => [...m, { from: "user", text: q }]);
     setLoading(true);
+
+    // Add empty streaming bot message
+    setMessages(m => [...m, { from: "bot", text: "", streaming: true }]);
+
     try {
       const res = await fetch("/api/assistant/ask", {
         method: "POST",
@@ -527,30 +560,89 @@ function SectionAssistant() {
         credentials: "include",
         body: JSON.stringify({ question: q }),
       });
-      if (!res.ok) {
+
+      if (!res.ok || !res.body) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? `خطأ ${res.status}`);
       }
-      const data = await res.json();
-      setMessages(m => [...m, { from: "bot", text: data.response }]);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          try {
+            const payload = JSON.parse(raw);
+            if (payload.text) {
+              setMessages(m => {
+                const copy = [...m];
+                const last = copy[copy.length - 1];
+                if (last?.from === "bot") copy[copy.length - 1] = { ...last, text: last.text + payload.text };
+                return copy;
+              });
+              scrollToBottom();
+            }
+            if (payload.done) {
+              setMessages(m => {
+                const copy = [...m];
+                const last = copy[copy.length - 1];
+                if (last?.from === "bot") copy[copy.length - 1] = { ...last, streaming: false };
+                return copy;
+              });
+              if (payload.context) setFinCtx(payload.context);
+            }
+            if (payload.error) throw new Error(payload.error);
+          } catch { /* skip malformed */ }
+        }
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "حدث خطأ";
-      setMessages(m => [...m, { from: "bot", text: `عذراً، ${msg}. تأكد من تسجيل الدخول وحاول مجدداً.` }]);
+      setMessages(m => {
+        const copy = [...m];
+        const last = copy[copy.length - 1];
+        if (last?.from === "bot" && last.streaming) {
+          copy[copy.length - 1] = { from: "bot", text: `عذراً، ${msg}` };
+        } else {
+          copy.push({ from: "bot", text: `عذراً، ${msg}` });
+        }
+        return copy;
+      });
     } finally {
       setLoading(false);
+      scrollToBottom();
     }
   };
 
   useEffect(() => { scrollToBottom(); }, [messages, loading]);
 
-  const QUICK = ["كيف أحسّن مؤشر نبضي؟", "حلّل ميزانيتي هذا الشهر", "نصائح لزيادة ادخاري", "وضع التزاماتي"];
+  const QUICK = [
+    "كيف أحسّن مؤشر نبضي؟",
+    "حلّل ميزانيتي هذا الشهر",
+    "كم أقدر أوفر؟",
+    "وضع التزاماتي",
+    "أين أنفق أكثر؟",
+  ];
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col" style={{ minHeight: 560 }}>
-      <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-3" style={{ fontFamily: "Cairo, sans-serif" }}>
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col" style={{ minHeight: 580 }}>
+      <h2 className="text-xl font-bold text-slate-900 mb-3 flex items-center gap-3" style={{ fontFamily: "Cairo, sans-serif" }}>
         <Brain className="w-5 h-5 text-primary" />
         المساعد المالي الذكي
+        <span className="mr-auto text-xs font-normal px-2 py-0.5 bg-primary/10 text-primary rounded-full">مدعوم بـ Claude</span>
       </h2>
+
+      {/* Live financial context bar */}
+      <ContextBar ctx={finCtx} />
 
       {/* Quick prompts */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -558,7 +650,8 @@ function SectionAssistant() {
           <button
             key={q}
             onClick={() => { setInput(q); }}
-            className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors"
+            disabled={loading}
+            className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors disabled:opacity-40"
             style={{ fontFamily: "Tajawal, sans-serif" }}
           >
             {q}
@@ -567,7 +660,7 @@ function SectionAssistant() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl p-4 overflow-y-auto mb-4 space-y-3" style={{ maxHeight: 360 }}>
+      <div className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl p-4 overflow-y-auto mb-4 space-y-3" style={{ maxHeight: 380 }}>
         {messages.map((m, i) => (
           <div key={i} className={`flex items-end gap-2 ${m.from === "user" ? "justify-end" : "justify-start"}`}>
             {m.from === "bot" && (
@@ -575,29 +668,22 @@ function SectionAssistant() {
                 <Brain className="w-4 h-4 text-white" />
               </div>
             )}
-            <div className={`rounded-2xl px-4 py-3 max-w-sm text-sm leading-relaxed ${
+            <div className={`rounded-2xl px-4 py-3 max-w-sm text-sm leading-relaxed whitespace-pre-wrap ${
               m.from === "user"
                 ? "bg-gradient-to-l from-primary to-secondary text-white rounded-bl-sm"
                 : "bg-white border border-slate-200 text-slate-800 rounded-br-sm shadow-sm"
             }`} style={{ fontFamily: "Tajawal, sans-serif" }}>
-              {m.text}
+              {m.text || (m.streaming ? (
+                <span className="flex gap-1 py-1">
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                </span>
+              ) : "")}
+              {m.streaming && m.text && <span className="inline-block w-0.5 h-4 bg-primary/70 animate-pulse mr-0.5 align-middle" />}
             </div>
           </div>
         ))}
-        {loading && (
-          <div className="flex items-end gap-2 justify-start">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
-              <Brain className="w-4 h-4 text-white" />
-            </div>
-            <div className="bg-white border border-slate-200 rounded-2xl rounded-br-sm px-4 py-3 shadow-sm">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-              </div>
-            </div>
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
 

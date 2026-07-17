@@ -1,35 +1,28 @@
 ---
 name: Nabd Backend Architecture
-description: Complete backend for نبض | Pulse FinTech app — tables, routes, seed, and known quirks
+description: Key facts about the api-server, database, and session setup for the nabdh-pulse project
 ---
 
-## Stack
-- Express.js + TypeScript + Drizzle ORM + PostgreSQL
-- Session-based auth (connect-pg-simple) — **must be externalized in esbuild**, never bundled
-- Seed: `pnpm --filter @workspace/api-server run seed` (builds seed.ts via build-seed.mjs then runs dist/seed.mjs)
+## Session Store
+- `connect-pg-simple` must stay in `external` list in `build.mjs` or sessions break at runtime.
 
-## DB Tables (lib/db/src/schema/)
-- users.ts: extended with phone, city, age, maritalStatus, housingType, dependentsCount, updatedAt
-- nabd.ts: income, obligations, budget, goals, transactions, financial_pulse, notifications, activity_logs, community_profiles
-- savings.ts: savings_transactions, savings_goals (original, unchanged)
+## Database
+- Package: `@workspace/db` at `lib/db/`
+- Schema files: `lib/db/src/schema/{users,savings,nabd,conversations,messages}.ts`
+- `drizzle-kit push` requires a TTY — cannot run non-interactively. Use `executeSql` via CodeExecution to apply raw DDL instead.
+- **Critical**: The `users` table was NOT created by the initial drizzle push (it asked interactive questions and aborted). Must be created manually via SQL. All other tables existed except `users`, `financial_pulse`, `conversations`, `messages`.
 
-## Key Route Files (artifacts/api-server/src/routes/)
-users, finance, transactions, pulse, notifications, reports, simulation, assistant, community
+**Why:** drizzle-kit push prompts interactively when schemas differ; in a non-TTY environment it throws "Interactive prompts require a TTY terminal" and exits without creating tables.
 
-## Services (artifacts/api-server/src/services/)
-- pulse.service.ts: calculatePulseScore + simulatePurchaseImpact
-- safe-spending.service.ts: calculateSafeDailySpending
-- notification.service.ts: createNotification + generateSmartNotifications
+**How to apply:** When adding new schema tables or after a fresh environment, run CREATE TABLE IF NOT EXISTS directly via the database executeSql callback in CodeExecution.
 
-## Demo User
-- Email: sara@nabd.demo / Demo1234!
-- 7,500 SAR/month, 1,200 SAR obligations, 4,000 SAR savings, pulse 78/100
+## Vite Proxy
+- Frontend (`nabdh-pulse`) proxies `/api` → `http://localhost:8080` in `vite.config.ts`.
+- Without this proxy, all auth and API calls silently fail (fetch goes to Vite's dev server, not the API server).
 
-## Community Data
-- 1,000 user profiles seeded from Nabd_12_Months_Clean01 CSV (per-user 12-month averages)
-- Stored in community_profiles table for anonymous comparison
+## API Server Port
+- API server consistently listens on port 8080 (assigned by Replit artifact system).
 
-## Known Quirks
-- connect-pg-simple MUST be in externals (build.mjs) — it reads table.sql from disk
-- Pulse score calculation gathers data across 5+ tables each time; cache if needed at scale
-- safe-daily-spending uses savings_transactions as "spent so far" proxy (not transactions table)
+## Dashboard Navigation
+- Dashboard uses `?section=<key>` URL param for deep-linking from other pages (calculator sidebar, savings sidebar, landing features).
+- Valid section keys: `home | pulse | alerts | simulation | assistant | community | settings`

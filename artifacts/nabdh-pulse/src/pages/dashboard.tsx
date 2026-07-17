@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Logo } from "@/components/Logo";
 import { CircularIndicator } from "@/components/CircularIndicator";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Home, Activity, Wallet, Bell, Brain, Users, Settings,
   TrendingUp, DollarSign, PiggyBank, CheckCircle2, AlertTriangle,
@@ -38,14 +39,14 @@ const factors = [
 
 // ── Section components ────────────────────────────────────────────────────────
 
-function SectionHome() {
+function SectionHome({ userName }: { userName: string }) {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex-1 text-center md:text-right">
-            <h1 className="text-3xl font-black text-slate-900 mb-2">مرحبًا، أحمد</h1>
-            <p className="text-slate-600">آخر تحديث: اليوم، 3:45 م</p>
+            <h1 className="text-3xl font-black text-slate-900 mb-2">مرحبًا، {userName}</h1>
+            <p className="text-slate-600">آخر تحديث: اليوم، {new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</p>
           </div>
           <CircularIndicator value={78} size={160} strokeWidth={14} label="مستقر ماليًا" />
         </div>
@@ -296,7 +297,7 @@ function SectionCommunity() {
   );
 }
 
-function SectionSettings() {
+function SectionSettings({ userName, userEmail }: { userName: string; userEmail: string }) {
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
       <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
@@ -304,19 +305,29 @@ function SectionSettings() {
         الإعدادات
       </h2>
       <div className="space-y-4 max-w-lg">
-        {[
-          { label: "الاسم", value: "أحمد محمد" },
-          { label: "البريد الإلكتروني", value: "ahmed@example.com" },
-          { label: "الدخل الشهري", value: "7,500 ريال" },
-        ].map((f, i) => (
-          <div key={i}>
-            <label className="block text-sm font-semibold text-slate-600 mb-1">{f.label}</label>
-            <input
-              defaultValue={f.value}
-              className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-primary focus:outline-none"
-            />
-          </div>
-        ))}
+        <div>
+          <label className="block text-sm font-semibold text-slate-600 mb-1">الاسم</label>
+          <input
+            defaultValue={userName}
+            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-primary focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-slate-600 mb-1">البريد الإلكتروني</label>
+          <input
+            defaultValue={userEmail}
+            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-primary focus:outline-none bg-slate-50"
+            readOnly
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-slate-600 mb-1">الدخل الشهري (ريال)</label>
+          <input
+            type="number"
+            defaultValue={7500}
+            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-primary focus:outline-none"
+          />
+        </div>
         <button className="mt-2 px-8 py-3 bg-gradient-to-l from-primary to-secondary text-white rounded-lg font-bold hover:shadow-lg transition-all">
           حفظ التغييرات
         </button>
@@ -340,19 +351,44 @@ const NAV_ITEMS: { key: SectionKey | "wallet" | "calculator"; icon: React.Elemen
   { key: "settings",    icon: Settings,         label: "الإعدادات"      },
 ];
 
-const SECTIONS: Record<SectionKey, React.ReactNode> = {
-  home:       <SectionHome />,
-  pulse:      <SectionPulse />,
-  alerts:     <SectionAlerts />,
-  simulation: <SectionSimulation />,
-  assistant:  <SectionAssistant />,
-  community:  <SectionCommunity />,
-  settings:   <SectionSettings />,
-};
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const [active, setActive] = useState<SectionKey>("home");
+  const { user, logout } = useAuth();
+  const userName = user?.name ?? "زائر";
+  const userEmail = user?.email ?? "";
+
+  // Read ?section= from URL to support deep-linking from other pages
+  const [active, setActive] = useState<SectionKey>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const s = params.get("section") as SectionKey | null;
+    return s && s in { home:1, pulse:1, alerts:1, simulation:1, assistant:1, community:1, settings:1 }
+      ? s
+      : "home";
+  });
+
+  // Keep section in sync if user navigates with browser back/forward
+  useEffect(() => {
+    const handler = () => {
+      const params = new URLSearchParams(window.location.search);
+      const s = params.get("section") as SectionKey | null;
+      if (s && s in { home:1, pulse:1, alerts:1, simulation:1, assistant:1, community:1, settings:1 }) {
+        setActive(s);
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
+  const sections: Record<SectionKey, React.ReactNode> = {
+    home:       <SectionHome userName={userName} />,
+    pulse:      <SectionPulse />,
+    alerts:     <SectionAlerts />,
+    simulation: <SectionSimulation />,
+    assistant:  <SectionAssistant />,
+    community:  <SectionCommunity />,
+    settings:   <SectionSettings userName={userName} userEmail={userEmail} />,
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex" dir="rtl">
@@ -391,18 +427,27 @@ export default function DashboardPage() {
           )}
         </nav>
 
-        <div className="p-4 border-t border-slate-200">
-          <Link href="/" className="flex items-center gap-2 text-sm text-slate-500 hover:text-red-500 transition-colors">
+        <div className="p-4 border-t border-slate-200 space-y-1">
+          {user && (
+            <div className="px-2 pb-2 border-b border-slate-100 mb-2">
+              <p className="text-sm font-semibold text-slate-800 truncate">{user.name}</p>
+              <p className="text-xs text-slate-400 truncate">{user.email}</p>
+            </div>
+          )}
+          <button
+            onClick={() => logout()}
+            className="flex items-center gap-2 text-sm text-slate-500 hover:text-red-500 transition-colors"
+          >
             <LogOut className="w-4 h-4" />
             تسجيل الخروج
-          </Link>
+          </button>
         </div>
       </aside>
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto p-6">
-          {SECTIONS[active]}
+          {sections[active]}
         </div>
       </main>
     </div>

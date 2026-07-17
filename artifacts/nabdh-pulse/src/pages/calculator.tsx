@@ -6,15 +6,15 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { icon: Home,              label: "الرئيسية",        href: "/dashboard" },
-  { icon: Activity,          label: "مؤشر النبض",      href: "/dashboard" },
-  { icon: Wallet,            label: "المحفظة الذكية",  href: "/savings"   },
-  { icon: Bell,              label: "التنبيهات",       href: "/dashboard" },
-  { icon: Zap,               label: "المحاكاة",        href: "/dashboard" },
+  { icon: Home,              label: "الرئيسية",        href: "/dashboard"              },
+  { icon: Activity,          label: "مؤشر النبض",      href: "/dashboard?section=pulse"},
+  { icon: Wallet,            label: "المحفظة الذكية",  href: "/savings"                },
+  { icon: Bell,              label: "التنبيهات",       href: "/dashboard?section=alerts"},
+  { icon: Zap,               label: "المحاكاة",        href: "/dashboard?section=simulation"},
   { icon: CircleDollarSign,  label: "الحاسبة الذكية",  href: "/calculator", active: true },
-  { icon: Brain,             label: "المساعد الذكي",   href: "/dashboard" },
-  { icon: Users,             label: "مجتمع نبض",       href: "/dashboard" },
-  { icon: Settings,          label: "الإعدادات",       href: "/dashboard" },
+  { icon: Brain,             label: "المساعد الذكي",   href: "/dashboard?section=assistant"},
+  { icon: Users,             label: "مجتمع نبض",       href: "/dashboard?section=community"},
+  { icon: Settings,          label: "الإعدادات",       href: "/dashboard?section=settings"},
 ];
 
 export default function CalculatorPage() {

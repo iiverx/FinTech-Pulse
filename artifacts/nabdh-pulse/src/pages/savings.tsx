@@ -171,15 +171,15 @@ export default function SavingsPage() {
         </div>
         <nav className="flex-1 p-4 space-y-2">
           {[
-            { icon: Home,     label: "الرئيسية",        href: "/dashboard",   active: false },
-            { icon: Activity, label: "مؤشر النبض",      href: "/dashboard",   active: false },
-            { icon: Wallet,   label: "المحفظة الذكية",  href: "/savings",     active: true  },
-            { icon: Bell,     label: "التنبيهات",       href: "/dashboard",   active: false },
-            { icon: Zap,      label: "المحاكاة",        href: "/dashboard",   active: false },
-            { icon: CircleDollarSign, label: "الحاسبة الذكية", href: "/calculator", active: false },
-            { icon: Brain,    label: "المساعد الذكي",   href: "/dashboard",   active: false },
-            { icon: Users,    label: "مجتمع نبض",       href: "/dashboard",   active: false },
-            { icon: Settings, label: "الإعدادات",       href: "/dashboard",   active: false },
+            { icon: Home,     label: "الرئيسية",        href: "/dashboard",                    active: false },
+            { icon: Activity, label: "مؤشر النبض",      href: "/dashboard?section=pulse",      active: false },
+            { icon: Wallet,   label: "المحفظة الذكية",  href: "/savings",                      active: true  },
+            { icon: Bell,     label: "التنبيهات",       href: "/dashboard?section=alerts",     active: false },
+            { icon: Zap,      label: "المحاكاة",        href: "/dashboard?section=simulation", active: false },
+            { icon: CircleDollarSign, label: "الحاسبة الذكية", href: "/calculator",            active: false },
+            { icon: Brain,    label: "المساعد الذكي",   href: "/dashboard?section=assistant",  active: false },
+            { icon: Users,    label: "مجتمع نبض",       href: "/dashboard?section=community",  active: false },
+            { icon: Settings, label: "الإعدادات",       href: "/dashboard?section=settings",   active: false },
           ].map((item, idx) => (
             <Link
               key={idx}

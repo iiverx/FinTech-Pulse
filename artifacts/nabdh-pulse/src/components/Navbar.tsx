@@ -4,14 +4,14 @@ import { Logo } from "@/components/Logo";
 import { Menu, X } from "lucide-react";
 
 const NAV_LINKS = [
-  { label: "الرئيسية",       href: "/",           isRoute: true  },
-  { label: "المحفظة الذكية", href: "/savings",    isRoute: true  },
-  { label: "المشكلة",        href: "#problem",    isRoute: false },
-  { label: "الحل",           href: "#solution",   isRoute: false },
-  { label: "المميزات",       href: "#features",   isRoute: false },
-  { label: "الابتكار",       href: "#innovation", isRoute: false },
-  { label: "القيمة للبنك",   href: "#value",      isRoute: false },
-  { label: "الرؤية",         href: "#vision",     isRoute: false },
+  { label: "الرئيسية",       href: "/",            isRoute: true  },
+  { label: "المحفظة الذكية", href: "/savings",     isRoute: true  },
+  { label: "المشكلة",        href: "/#problem",    isRoute: false },
+  { label: "الحل",           href: "/#solution",   isRoute: false },
+  { label: "المميزات",       href: "/#features",   isRoute: false },
+  { label: "الابتكار",       href: "/#innovation", isRoute: false },
+  { label: "القيمة للبنك",   href: "/#value",      isRoute: false },
+  { label: "الرؤية",         href: "/#vision",     isRoute: false },
 ];
 
 export function Navbar({ fixed = true }: { fixed?: boolean }) {

@@ -4,7 +4,7 @@ import { Logo } from "@/components/Logo";
 import { Menu, X } from "lucide-react";
 
 const NAV_LINKS = [
-  { label: "الرئيسية",       href: "/",            isRoute: true  },
+  { label: "الرئيسية",       href: "/",            isRoute: true, scrollTop: true  },
   { label: "المحفظة الذكية", href: "/savings",     isRoute: true  },
   { label: "المشكلة",        href: "/#problem",    isRoute: false },
   { label: "الحل",           href: "/#solution",   isRoute: false },
@@ -33,6 +33,7 @@ export function Navbar({ fixed = true }: { fixed?: boolean }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => item.scrollTop && window.scrollTo({ top: 0, behavior: "smooth" })}
                   className={`transition-colors ${
                     item.href === "/savings"
                       ? "text-primary font-semibold"
@@ -80,7 +81,7 @@ export function Navbar({ fixed = true }: { fixed?: boolean }) {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setOpen(false)}
+                onClick={() => { setOpen(false); item.scrollTop && window.scrollTo({ top: 0, behavior: "smooth" }); }}
                 className={`block w-full text-right px-4 py-3 rounded-lg font-medium transition-colors ${
                   item.href === "/savings"
                     ? "bg-primary/10 text-primary font-semibold"

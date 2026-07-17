@@ -499,7 +499,7 @@ export default function DashboardPage() {
             ) : (
               <button
                 key={item.key}
-                onClick={() => setActive(item.key as SectionKey)}
+                onClick={() => { setActive(item.key as SectionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-semibold transition-all ${
                   active === item.key
                     ? "bg-gradient-to-l from-primary to-secondary text-white shadow-lg"

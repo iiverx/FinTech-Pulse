@@ -1,0 +1,690 @@
+[7/17/2026 11:39 AM] .: You are building a production-quality full-stack web application called "نبض | Pulse" —
+a Saudi financial health monitoring platform for Inma Bank customers.
+
+IMPORTANT: Build every feature completely — no placeholders, no mock data in components,
+no TODO comments. After building, TEST every backend endpoint (via /docs or curl) and every
+frontend page yourself, and fix anything broken before telling me you're done. Don't just
+claim "zero errors" without actually running and checking — verify it.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TECH STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Backend:  FastAPI + SQLAlchemy + SQLite + JWT + bcrypt (used directly, NOT via passlib —
+          passlib 1.7.4 has a known incompatibility with bcrypt>=4.0 that crashes password
+          hashing on first run: bcrypt.hashpw(password.encode(), bcrypt.gensalt()) and
+          bcrypt.checkpw(password.encode(), hash.encode()) directly in auth.py)
+Frontend: React 18 + Vite + Tailwind CSS + Recharts
+AI:       Anthropic Claude API (claude-sonnet-4-6)
+Auth:     JWT Bearer tokens (24h expiry)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE SCHEMA WITH PROPER RELATIONSHIPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Implement all tables with proper SQLAlchemy ORM relationships,
+foreign keys, indexes, and cascading deletes:
+
+-- users (base table)
+CREATE TABLE users (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    full_name   VARCHAR(100) NOT NULL,
+    email       VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    national_id VARCHAR(10) UNIQUE,
+    phone       VARCHAR(15),
+    role        VARCHAR(10) DEFAULT 'user',  -- 'user' | 'admin'
+    is_active   BOOLEAN DEFAULT TRUE,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_users_email ON users(email);
+
+-- financial_profiles (one-to-one with users)
+CREATE TABLE financial_profiles (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL UNIQUE,
+    monthly_income      FLOAT NOT NULL DEFAULT 0,
+    housing             FLOAT NOT NULL DEFAULT 0,
+    food                FLOAT NOT NULL DEFAULT 0,
+    transport           FLOAT NOT NULL DEFAULT 0,
+    entertainment       FLOAT NOT NULL DEFAULT 0,
+    savings             FLOAT NOT NULL DEFAULT 0,
+    loans               FLOAT NOT NULL DEFAULT 0,
+    subscriptions       FLOAT NOT NULL DEFAULT 0,
+    remaining_balance   FLOAT NOT NULL DEFAULT 0,
+    salary_day          INTEGER DEFAULT 25,
+    updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- monthly_records (one-to-many with users)
+CREATE TABLE monthly_records (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL,
+    month_num           INTEGER NOT NULL,  -- 1-12
+    year                INTEGER NOT NULL,
+    housing             FLOAT DEFAULT 0,
+    food                FLOAT DEFAULT 0,
+    transport           FLOAT DEFAULT 0,
+    entertainment       FLOAT DEFAULT 0,
+    savings             FLOAT DEFAULT 0,
+    loans               FLOAT DEFAULT 0,
+    subscriptions       FLOAT DEFAULT 0,
+    total_spending      FLOAT NOT NULL,
+    remaining_balance   FLOAT NOT NULL,
+    pulse_score         FLOAT NOT NULL,
+    risk_probability    FLOAT DEFAULT 0,
+    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, month_num, year),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_monthly_records_user_year ON monthly_records(user_id, year);
+
+-- alerts (one-to-many with users)
+CREATE TABLE alerts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL,
+    alert_type      VARCHAR(30) NOT NULL,
+[7/17/2026 11:39 AM] .: -- types: PRE_RISK | SPENDING_SPIKE | SAVINGS_DROP | BALANCE_WARNING | POSITIVE
+    title_ar        VARCHAR(100) NOT NULL,
+    title_en        VARCHAR(100) NOT NULL,
+    message_ar      TEXT NOT NULL,
+    message_en      TEXT NOT NULL,
+    action_ar       VARCHAR(200),
+    action_en       VARCHAR(200),
+    urgency_level   INTEGER DEFAULT 1,  -- 1=low 2=medium 3=high
+    is_read         BOOLEAN DEFAULT FALSE,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_alerts_user_read ON alerts(user_id, is_read);
+
+-- chat_history (one-to-many with users)
+CREATE TABLE chat_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    role        VARCHAR(10) NOT NULL,  -- 'user' | 'assistant'
+    content     TEXT NOT NULL,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_chat_history_user ON chat_history(user_id);
+
+-- challenges (one-to-many with users)
+CREATE TABLE challenges (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL,
+    title_ar            VARCHAR(200) NOT NULL,
+    title_en            VARCHAR(200) NOT NULL,
+    description_ar      TEXT,
+    description_en      TEXT,
+    challenge_type      VARCHAR(30),
+    -- types: REDUCE_FOOD | REDUCE_ENT | BOOST_SAVINGS | NO_IMPULSE | CUSTOM
+    target_amount       FLOAT DEFAULT 0,
+    current_progress    FLOAT DEFAULT 0,
+    reward_points       INTEGER DEFAULT 100,
+    start_date          DATE NOT NULL,
+    end_date            DATE NOT NULL,
+    is_completed        BOOLEAN DEFAULT FALSE,
+    is_active           BOOLEAN DEFAULT TRUE,
+    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- user_points (one-to-one with users)
+CREATE TABLE user_points (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL UNIQUE,
+    total_points    INTEGER DEFAULT 0,
+    level           VARCHAR(20) DEFAULT 'مبتدئ',
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+SQLAlchemy ORM Requirements:
+- Define all relationships using relationship() with back_populates
+- Use lazy='select' for single objects, lazy='dynamic' for collections
+- Implement repr for all models
+- Add @validates decorators for email format and score range validation
+- Use hybrid_property for computed fields where appropriate
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE SEEDING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Seed these 5 users automatically on first run (check if DB is empty first):
+
+demo@pulse.sa  / demo123  — score ~74, declining trend, 3 active alerts
+sara@pulse.sa  / demo123  — score ~88, improving trend, high saver
+ahmed@pulse.sa / demo123  — score ~45, high risk, overspending on entertainment
+fatima@pulse.sa/ demo123  — score ~62, stable, loan burden issue
+khalid@pulse.sa/ demo123  — score ~91, excellent, consistent saver
+
+For each user seed:
+- financial_profiles record
+- 12 monthly_records (Jan-Dec 2025) with realistic variation per persona
+- 3-5 alerts (mix of types)
+- 2-3 challenges (1 active, 1 completed, 1 available)
+- user_points record
+- 5 chat_history messages (2 user, 3 assistant) for demo user
+
+Income ranges: 8,000-25,000 SAR
+Spending categories must sum to less than income (realistic remaining balance)
+Monthly variation: ±5-20% realistic noise per category
+demo user must showcase ALL features visually
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PULSE SCORE ENGINE (pulse_engine.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Implement exactly:
+
+def calculate_pulse_score(income, housing, food, transport,
+                           entertainment, savings, loans, subscriptions,
+                           remaining_balance) -> dict:
+[7/17/2026 11:39 AM] .: total_spending = housing+food+transport+entertainment+loans+subscriptions
+    spend_ratio    = total_spending / income
+    savings_ratio  = savings / income
+    loan_ratio     = loans / income
+    sub_ratio      = subscriptions / income
+    balance_ratio  = remaining_balance / income
+
+    spend_score   = max(0, 1 - max(spend_ratio-0.5, 0)/0.5) * 30
+    savings_score = min(savings_ratio/0.20, 1) * 25
+    loan_score    = max(0, 1 - min(loan_ratio/0.35, 1)) * 20
+    sub_score     = max(0, 1 - min(sub_ratio/0.02, 1)) * 10
+    balance_score = min(max(balance_ratio, 0)/0.25, 1) * 15
+
+    total = spend_score + savings_score + loan_score + sub_score + balance_score
+    score = round(min(max(total, 0), 100), 1)
+
+    return {
+        "pulse_score": score,
+        "level": "ممتاز" if score>=80 else "يحتاج انتباه" if score>=60 else "خطر مالي",
+        "level_en": "Excellent" if score>=80 else "Needs Attention" if score>=60 else "Financial Risk",
+        "color": "#22c55e" if score>=80 else "#f59e0b" if score>=60 else "#ef4444",
+        "breakdown": {
+            "spending": round(spend_score, 1),
+            "savings": round(savings_score, 1),
+            "loans": round(loan_score, 1),
+            "subscriptions": round(sub_score, 1),
+            "balance": round(balance_score, 1)
+        },
+        "spend_ratio": round(spend_ratio*100, 1),
+        "savings_ratio": round(savings_ratio*100, 1)
+    }
+
+Guard against income <= 0 (return score 0 with all breakdown fields 0 instead of raising
+a ZeroDivisionError) — this WILL happen during onboarding before the user enters income.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RISK PREDICTION MODEL (risk_model.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On app startup:
+1. Load all monthly_records from DB
+2. Engineer features from consecutive months per user:
+   - spend_ratio (current month)
+   - savings_ratio (current month)
+   - ent_change = pct_change in entertainment vs prev month
+   - food_change = pct_change in food vs prev month
+   - spend_change = diff in spend_ratio vs prev month
+   - savings_change = pct_change in savings vs prev month
+   - spend_volatility_3m = rolling 3m std of total_spending/income
+   - spend_slope_3m = np.polyfit slope of spend_ratio over last 3 months
+3. Target: next month remaining_balance < 10% of income
+4. Train GradientBoostingClassifier(n_estimators=200, max_depth=3,
+   learning_rate=0.05, random_state=42)
+5. Decision threshold: 0.33 (optimized for recall)
+6. If there are fewer than 20 (user, month) training rows after feature engineering
+   (e.g. right after a fresh seed), skip training and fall back to a simple heuristic
+   probability instead of crashing on an empty/tiny training set.
+7. Store model + scaler in memory as module-level singletons
+8. Retrain automatically when new monthly_records are added
+
+def predict_risk(user_monthly_history: list[dict]) -> dict:
+    # Returns risk_probability, risk_level, days_until_risk estimate,
+    # top_risk_factors with Arabic explanations
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SMART ALERTS ENGINE (alerts_engine.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Trigger conditions and Arabic messages:
+
+PRE_RISK (urgency=3):
+  condition: risk_probability > 0.60
+  title_ar: "⚠️ نبضك المالي يحتاج انتباهك"
+  message_ar: f"توقعنا إن رصيدك قد ينخفض بشكل كبير الشهر القادم بناءً على نمط إنفاقك الحالي"
+
+SPENDING_SPIKE (urgency=2):
+  condition: any category > 140% of last month
+  title_ar: f"📈 ارتفاع مفاجئ في {category_ar}"
+  message_ar: f"مصاريف {category_ar} ارتفعت {pct:.0f}% عن الشهر الماضي"
+
+SAVINGS_DROP (urgency=2):
+  condition: savings < 70% of last month savings
+  title_ar: "💰 انخفاض في مدخراتك"
+  message_ar: "مدخراتك هذا الشهر أقل من الشهر الماضي بشكل ملحوظ"
+
+BALANCE_WARNING (urgency=3):
+  condition: remaining_balance < 10% of income
+  title_ar: "🚨 رصيدك المتبقي منخفض جداً"
+  message_ar: f"رصيدك المتبقي {remaining:,.0f} ريال فقط — أقل من 10% من راتبك"
+[7/17/2026 11:39 AM] .: POSITIVE (urgency=1):
+  condition: pulse_score improved > 5 points vs last month
+  title_ar: "🎉 نبضك المالي تحسّن!"
+  message_ar: f"ممتاز! نبضك ارتفع {diff:.0f} نقطة هذا الشهر. استمر على هذا النهج"
+
+Never create duplicate alerts (check last 7 days before inserting).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CHATBOT (chatbot.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Use Anthropic Python SDK. System prompt must be dynamically built:
+
+SYSTEM_PROMPT = f"""
+أنت "نبض" — مساعد مالي ذكي ومتخصص لعملاء مصرف الإنماء.
+تتحدث باللهجة السعودية العامية بأسلوب ودود ومشجع وغير حكمي.
+
+معلومات العميل الحالية:
+- الاسم: {user.full_name}
+- مؤشر نبض: {pulse_score}/100 ({level_ar})
+- مستوى الخطر: {risk_level_ar}
+- الراتب الشهري: {income:,.0f} ريال
+- أكبر 3 فئات إنفاق: {top_categories}
+- اتجاه آخر 3 أشهر: {trend_ar}
+- الرصيد المتبقي: {remaining:,.0f} ريال
+
+قواعد المحادثة:
+1. ردودك قصيرة وعملية (3-5 جمل كحد أقصى)
+2. دائماً اذكر رقم حقيقي من بيانات العميل في ردك
+3. اعطِ نصيحة واحدة محددة وقابلة للتنفيذ في كل رد
+4. لا تكرر نفس النصيحة مرتين في نفس المحادثة
+5. لو سألك عن مؤشر نبضه اشرح له بالأرقام ليش
+6. لو طلب خطة ادخار اعطه خطة بأرقام من راتبه الفعلي
+7. كن إيجابياً دائماً حتى لو وضعه سيئ
+8. لا تذكر أي بنوك أو منتجات منافسة
+"""
+
+Maintain last 10 messages as context window.
+Handle API errors gracefully with Arabic fallback message — if ANTHROPIC_API_KEY is
+missing or invalid, return a clear Arabic error instead of a raw stack trace (500).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+API ENDPOINTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Auth:
+POST   /api/auth/register
+POST   /api/auth/login        → {access_token, token_type, user}
+POST   /api/auth/logout
+GET    /api/auth/me
+
+Dashboard:
+GET    /api/dashboard         → pulse_score, risk, trend, top_insights,
+                                 salary_countdown, comparison_percentile,
+                                 spending_breakdown, recent_alerts(3),
+                                 active_challenge
+
+Financial:
+GET    /api/financial/profile
+PUT    /api/financial/profile → recalculates score, generates alerts
+GET    /api/financial/history → 12 months of records with scores
+GET    /api/financial/comparison → percentile vs similar income users
+
+Alerts:
+GET    /api/alerts            → paginated, unread first
+PUT    /api/alerts/{id}/read
+PUT    /api/alerts/read-all
+GET    /api/alerts/unread-count
+
+Challenges:
+GET    /api/challenges
+GET    /api/challenges/available
+POST   /api/challenges/{id}/start
+PUT    /api/challenges/{id}/progress
+GET    /api/challenges/completed
+
+Chat:
+POST   /api/chat              → {message} → {response, updated_score}
+DELETE /api/chat/history      → clear conversation
+
+Bank Admin (role=admin only):
+GET    /api/bank/dashboard    → aggregated stats all users
+GET    /api/bank/users/at-risk → users with risk_probability > 0.6
+GET    /api/bank/trends        → monthly averages across all users
+
+Health:
+GET    /health                → {status, db, model_loaded}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FRONTEND PAGES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/login — Login page
+  - Email + password form
+  - "تسجيل الدخول" button
+  - Link to register
+  - Demo credentials shown: demo@pulse.sa / demo123
+  - Pulse logo + animated pulse line background
+  - Error handling with Arabic messages
+
+/register — Register page
+  - Full name, email, password, confirm password
+  - National ID (optional)
+  - Phone (optional)
+  - Auto-creates financial_profile with zeros
+  - Redirect to /onboarding after register
+
+/onboarding — First-time setup (only shown once)
+  - Step 1: Enter salary
+  - Step 2: Enter fixed expenses (housing, loans)
+  - Step 3: Enter variable expenses (food, transport, entertainment, subscriptions)
+  - Step 4: Savings amount
+  - Progress bar showing steps
+  - Skip option
+  - Auto-calculates and shows first pulse score
+
+/dashboard — Main dashboard
+  Components (all pulling real data from API):
+[7/17/2026 11:39 AM] .: 1. PulseRing — animated SVG, shows score, color-coded, shows level label
+  2. ScoreTrend — "+X نقاط هذا الشهر" with up/down colored arrow
+  3. RiskBadge — color-coded pill showing risk level + days estimate
+  4. SalaryCountdown — "باقي X يوم على الراتب" with progress bar
+  5. SpendingBreakdown — 6 category cards with:
+     - Category name (AR+EN)
+     - Amount spent
+     - Percentage of income
+     - Color-coded progress bar (green/amber/red based on ratio)
+  6. AlertsPreview — top 3 unread alerts, "عرض الكل" link
+  7. ActiveChallenge — current challenge progress bar + days remaining
+  8. InsightCard — AI-generated tip (from /api/dashboard insights field)
+  9. ComparisonStat — "نبضك أعلى من X% من أمثالك"
+
+/history — Financial history
+  - PulseScoreChart: Recharts LineChart, 12 months, animated,
+    color changes based on score value, tooltip shows score + level
+  - SpendingChart: Recharts BarChart, grouped by category per month
+  - MonthSelector: click month to see that month's breakdown
+  - StatsCards: highest score, lowest score, average, months improved
+
+/challenges
+  - ActiveChallenges: list with circular progress, days left, reward points
+  - AvailableChallenges: cards to start new challenge
+  - CompletedChallenges: with checkmark and points earned
+  - TotalPointsBadge: level indicator (مبتدئ/متوسط/متقدم/خبير)
+
+/alerts
+  - AlertList: sorted by date, color-coded by urgency
+  - FilterTabs: الكل | غير مقروء | خطر | إنجازات
+  - Each alert: icon + title + message + action button + timestamp
+  - MarkAllRead button
+  - Empty state with illustration when no alerts
+
+/chat
+  - ChatHeader: user name + current pulse score ring (small)
+  - MessageBubbles:
+    * User messages: right-aligned, teal background, white text
+    * Bot messages: left-aligned, dark card background
+    * Timestamps on each message
+    * Pulse logo avatar for bot messages
+  - QuickReplies: 3 suggestion buttons below input
+    "ليش نبضي كذا؟" | "كيف أحسن نبضي؟" | "وين أصرف زيادة؟"
+  - TypingIndicator: animated dots when waiting for response
+  - ChatInput: text field + send button, submit on Enter
+  - ClearHistory button in header
+
+/settings
+  - ProfileSection: edit name, phone, profile picture placeholder
+  - FinancialProfile: edit all income/expense fields → saves + recalculates
+  - PreferencesSection:
+    * Language toggle (AR/EN) with flag icons
+    * Dark/Light mode toggle
+    * Notification preferences (checkboxes)
+  - AccountSection: change password, logout button (red)
+
+/bank (admin only, redirect if not admin role)
+  - StatCards: total users, avg pulse score, at-risk count, improved this month
+  - DistributionChart: Recharts PieChart (ممتاز/يحتاج انتباه/خطر مالي)
+  - TrendChart: Recharts LineChart showing avg pulse score per month
+  - AtRiskTable: list of users with risk>0.6, sortable by risk level
+  - TopRiskFactors: bar chart of most common risk causes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GLOBAL FRONTEND REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Theme System:
+  - ThemeContext: dark (default) | light
+  - CSS variables for all colors, switching via class on <html>
+  - Persisted to localStorage
+  - Smooth transition: transition: all 0.3s ease
+
+Language System:
+  - LanguageContext: ar (default) | en
+  - All text in translation object {ar: "...", en: "..."}
+  - RTL/LTR switches on <html> dir attribute
+  - Tajawal font for Arabic, Inter for English
+  - Persisted to localStorage
+
+Auth System:
+  - AuthContext: user state, login(), logout(), isLoading
+  - JWT stored in localStorage
+  - Axios interceptor adds Authorization header automatically
+  - 401 response → clear token → redirect to /login
+  - ProtectedRoute component wraps all private pages
+
+API Client (api/client.js):
+  - Axios instance with baseURL from env
+  - Request interceptor: adds JWT token
+  - Response interceptor: handles 401, 403, 500 with Arabic toasts
+  - Loading state management
+[7/17/2026 11:39 AM] .: UI Components:
+  - LoadingSpinner: teal animated spinner, shown during API calls
+  - Toast notifications: success (green) | error (red) | warning (amber)
+  - Empty states: illustrated, with Arabic message and action button
+  - Error boundaries: catch crashes, show Arabic error with retry button
+
+Design System:
+  Colors:
+    --primary: #00D4AA
+    --secondary: #7C5CFC
+    --danger: #ef4444
+    --warning: #f59e0b
+    --success: #22c55e
+    --dark-bg: #0a0a0f
+    --dark-card: #13131a
+    --dark-border: #2a2a35
+    --light-bg: #f8fafc
+    --light-card: #ffffff
+    --light-border: #e2e8f0
+
+  Typography:
+    - Headings: Tajawal Bold (Arabic) / Inter Bold (English)
+    - Body: Tajawal Regular (Arabic) / Inter Regular (English)
+    - Load via Google Fonts in index.html
+
+  Spacing: 4px base unit (4, 8, 12, 16, 24, 32, 48, 64px)
+  Border radius: cards=16px, buttons=8px, badges=99px
+  Shadows: 0 4px 24px rgba(0,0,0,0.3) for cards in dark mode
+
+Navbar (shown on all protected pages):
+  - Logo: pulse wave SVG icon + "نبض | Pulse" text
+  - Navigation links (icons + labels)
+  - Unread alerts badge (red dot with count)
+  - Language toggle button (AR | EN)
+  - Dark/Light mode toggle (sun/moon icon)
+  - User avatar + name + logout option (dropdown)
+
+Sidebar (desktop only, collapsible):
+  - Navigation: Dashboard | History | Challenges | Alerts | Chat | Settings
+  - Active state: teal background, white text
+  - Collapsed: shows icons only
+  - User pulse score mini ring at bottom
+
+PulseRing Component (reusable):
+  - Pure SVG, no canvas
+  - Animated stroke-dasharray on mount (1.2s ease)
+  - Outer ring: background color (rgba white/dark)
+  - Inner ring: colored arc based on score
+  - Center: score number (animated count-up) + label
+  - Sizes: sm (80px) | md (140px) | lg (200px)
+  - Glow effect: filter: drop-shadow(0 0 12px {color})
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+pulse/
+├── backend/
+│   ├── main.py              # FastAPI app, CORS (allow_origins=[FRONTEND_URL], not "*"), startup events
+│   ├── database.py          # SQLAlchemy engine, session, Base
+│   ├── models.py            # All ORM models with relationships
+│   ├── schemas.py           # All Pydantic request/response schemas
+│   ├── auth.py              # JWT creation, validation, password hashing via bcrypt directly
+│   ├── dependencies.py      # get_db, get_current_user, require_admin
+│   ├── pulse_engine.py      # Score calculation logic
+│   ├── risk_model.py        # ML model training and prediction
+│   ├── alerts_engine.py     # Alert generation logic
+│   ├── chatbot.py           # Claude API integration
+│   ├── seed_data.py         # Database seeding with realistic data
+│   ├── routers/
+│   │   ├── auth.py
+│   │   ├── dashboard.py
+│   │   ├── financial.py
+│   │   ├── alerts.py
+│   │   ├── challenges.py
+│   │   ├── chat.py
+│   │   └── bank.py
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── index.html           # Loads fonts, sets dir=rtl lang=ar
+│   ├── vite.config.js
+│   ├── tailwind.config.js   # Custom colors + Tajawal font
+│   ├── package.json
+│   └── src/
+│       ├── main.jsx
+│       ├── App.jsx          # Routes + context providers
+│       ├── i18n/
+│       │   └── translations.js  # All AR/EN text strings
+│       ├── api/
+│       │   └── client.js    # Axios instance + interceptors
+│       ├── context/
+│       │   ├── AuthContext.jsx
+│       │   ├── ThemeContext.jsx
+│       │   └── LanguageContext.jsx
+│       ├── hooks/
+│       │   ├── useApi.js    # Generic API hook with loading/error
+│       │   └── useAuth.js
+│       ├── components/
+│       │   ├── ui/
+│       │   │   ├── PulseRing.jsx
+│       │   │   ├── AlertCard.jsx
+│       │   │   ├── ChallengeCard.jsx
+│       │   │   ├── LoadingSpinner.jsx
+│       │   │   ├── Toast.jsx
+[7/17/2026 11:39 AM] .: │       │   │   └── EmptyState.jsx
+│       │   ├── layout/
+│       │   │   ├── Navbar.jsx
+│       │   │   ├── Sidebar.jsx
+│       │   │   └── ProtectedRoute.jsx
+│       │   └── charts/
+│       │       ├── PulseLineChart.jsx
+│       │       └── SpendingBarChart.jsx
+│       └── pages/
+│           ├── Login.jsx
+│           ├── Register.jsx
+│           ├── Onboarding.jsx
+│           ├── Dashboard.jsx
+│           ├── History.jsx
+│           ├── Challenges.jsx
+│           ├── Alerts.jsx
+│           ├── Chat.jsx
+│           ├── Settings.jsx
+│           └── BankDashboard.jsx
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENVIRONMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+backend/.env:
+  ANTHROPIC_API_KEY=your_key_here
+  SECRET_KEY=pulse_jwt_secret_2026
+  DATABASE_URL=sqlite:///./pulse.db
+  ALGORITHM=HS256
+  ACCESS_TOKEN_EXPIRE_HOURS=24
+  FRONTEND_URL=http://localhost:5173
+
+  # On Replit, generate a real random SECRET_KEY instead of the placeholder above:
+  #   python -c "import secrets; print(secrets.token_hex(32))"
+
+frontend/.env:
+  VITE_API_URL=http://localhost:8000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STARTUP SEQUENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Backend startup order (in main.py lifespan):
+  1. Create all DB tables (create_all)
+  2. Run seed_data if users table is empty
+  3. Train risk model on seeded data (skip gracefully if too little data — see risk_model.py notes)
+  4. Log: "✅ Pulse API ready | DB seeded | Model trained"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RUN INSTRUCTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Backend:
+  cd backend
+  pip install -r requirements.txt
+  uvicorn main:app --host 0.0.0.0 --reload --port 8000
+
+Frontend:
+  cd frontend
+  npm install
+  npm run dev
+
+requirements.txt must include exact versions:
+  fastapi==0.111.0
+  uvicorn==0.30.0
+  sqlalchemy==2.0.30
+  pydantic==2.7.1
+  python-jose==3.3.0
+  bcrypt==4.1.3
+  python-multipart==0.0.9
+  anthropic>=0.40.0
+  scikit-learn==1.5.0
+  numpy==1.26.4
+  pandas==2.2.2
+
+  # NOTE: passlib is intentionally excluded — passlib==1.7.4 has a known incompatibility
+  # with bcrypt>=4.0 (crashes reading bcrypt's version on hash). Use the bcrypt package
+  # directly in auth.py instead: bcrypt.hashpw() / bcrypt.checkpw().
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABSOLUTE REQUIREMENTS — NO EXCEPTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Actually run the backend and frontend after building, hit every endpoint at least once
+   (via /docs), click through every page, and fix any error you find — verify, don't assume
+✅ All DB relationships with proper foreign keys and cascades
+✅ All API endpoints return correct Pydantic schemas
+✅ JWT auth working on all protected routes
+✅ Dark mode default, persisted to localStorage
+✅ Arabic RTL default, persisted to localStorage
+✅ PulseRing SVG animates on mount
+✅ All charts render with real data (no empty charts)
+✅ Chatbot responds in Saudi Arabic dialect
+✅ Risk model trains on startup without errors (or falls back gracefully if too little data)
+✅ Alerts auto-generate when conditions are met
+✅ Bank dashboard only accessible to admin role
+✅ demo@pulse.sa shows all features working
+✅ Mobile responsive (works on 375px width)
+✅ CORS: allow_origins=[FRONTEND_URL] — a specific origin, not "*"
+✅ No hardcoded data in React components (all from API)
+✅ Loading states on every async operation
+✅ Error messages in Arabic when API fails

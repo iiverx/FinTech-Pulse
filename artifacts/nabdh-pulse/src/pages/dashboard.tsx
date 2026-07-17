@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Logo } from "@/components/Logo";
 import { PulseGauge } from "@/components/PulseGauge";
 import { HeartbeatLine } from "@/components/HeartbeatLine";
+import { HeroScene } from "@/components/HeroScene";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -51,6 +52,11 @@ function SectionHome({ userName }: { userName: string }) {
         <p className="text-slate-500 text-sm mt-0.5">
           آخر تحديث: اليوم، {new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
         </p>
+      </div>
+
+      {/* 3D Hero Scene */}
+      <div className="rounded-3xl overflow-hidden shadow-lg border border-slate-200" style={{ height: 420 }}>
+        <HeroScene />
       </div>
 
       {/* Top Row: Pulse Gauge + Financial Summary */}

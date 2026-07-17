@@ -1,6 +1,7 @@
 import React from "react";
 import { Logo } from "@/components/Logo";
-import { CircularIndicator } from "@/components/CircularIndicator";
+import { PulseGauge } from "@/components/PulseGauge";
+import { HeartbeatLine } from "@/components/HeartbeatLine";
 import { Link } from "wouter";
 import { TrendingUp, AlertTriangle, Sparkles, ArrowLeft } from "lucide-react";
 
@@ -19,8 +20,11 @@ export default function ResultPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 md:p-12 mb-8">
-          <div className="flex justify-center mb-12">
-            <CircularIndicator value={78} size={220} strokeWidth={18} label="مستقر ماليًا" />
+          <div className="flex justify-center mb-6">
+            <PulseGauge value={78} size={220} label="مستقر ماليًا" />
+          </div>
+          <div className="max-w-xs mx-auto mb-8">
+            <HeartbeatLine color="#1D4ED8" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

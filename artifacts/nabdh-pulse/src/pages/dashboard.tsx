@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Logo } from "@/components/Logo";
-import { CircularIndicator } from "@/components/CircularIndicator";
+import { PulseGauge } from "@/components/PulseGauge";
+import { HeartbeatLine } from "@/components/HeartbeatLine";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Home, Activity, Wallet, Bell, Brain, Users, Settings,
   TrendingUp, DollarSign, PiggyBank, CheckCircle2, AlertTriangle,
   Sparkles, Send, Zap, Target, CircleDollarSign, LogOut, User,
-  ChevronLeft,
+  ChevronLeft, ShoppingCart, CreditCard, Calculator, Shield,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -42,57 +43,108 @@ const factors = [
 function SectionHome({ userName }: { userName: string }) {
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex-1 text-center md:text-right">
-            <h1 className="text-3xl font-black text-slate-900 mb-2">مرحبًا، {userName}</h1>
-            <p className="text-slate-600">آخر تحديث: اليوم، {new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</p>
+      {/* Welcome */}
+      <div className="bg-gradient-to-l from-primary/10 to-secondary/10 border border-primary/20 rounded-2xl px-6 py-4">
+        <h1 className="text-2xl font-black text-slate-900" style={{ fontFamily: "Cairo, sans-serif" }}>
+          مرحبًا، {userName} 👋
+        </h1>
+        <p className="text-slate-500 text-sm mt-0.5">
+          آخر تحديث: اليوم، {new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+        </p>
+      </div>
+
+      {/* Top Row: Pulse Gauge + Financial Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Pulse Gauge Card */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col items-center">
+          <div className="flex items-center justify-between w-full mb-3">
+            <h3 className="font-bold text-slate-800" style={{ fontFamily: "Cairo, sans-serif" }}>مؤشر النبض المالي</h3>
+            <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-semibold">مستقر ماليًا</span>
           </div>
-          <CircularIndicator value={78} size={160} strokeWidth={14} label="مستقر ماليًا" />
+          <PulseGauge value={78} size={150} />
+          <div className="w-full mt-3">
+            <HeartbeatLine color="#1D4ED8" />
+          </div>
+          <p className="text-xs text-slate-400 text-center mt-1" style={{ fontFamily: "Tajawal, sans-serif" }}>
+            تم تحديث المؤشر اليوم بناءً على آخر معاملاتك
+          </p>
+        </div>
+
+        {/* Financial Summary */}
+        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+          <h3 className="font-bold text-slate-800 mb-4" style={{ fontFamily: "Cairo, sans-serif" }}>ملخص مالي سريع</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { label: "الدخل الشهري",       value: "7,500", unit: "ر.س",    color: "#16A34A", icon: TrendingUp   },
+              { label: "الإنفاق الحالي",      value: "3,920", unit: "ر.س",    color: "#F59E0B", icon: ShoppingCart },
+              { label: "الالتزامات القادمة",  value: "1,200", unit: "ر.س",    color: "#DC2626", icon: CreditCard   },
+              { label: "نسبة الادخار",        value: "18",    unit: "%",       color: "#1D4ED8", icon: PiggyBank    },
+              { label: "المبلغ الآمن اليومي", value: "64",    unit: "ر.س",    color: "#7C3AED", icon: Calculator   },
+              { label: "حالة الميزانية",      value: "آمن",   unit: "✓",       color: "#16A34A", icon: CheckCircle2 },
+            ].map((item) => (
+              <div key={item.label} className="rounded-2xl p-3.5" style={{ background: item.color + "12" }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <item.icon size={13} style={{ color: item.color }} />
+                  <span className="text-xs text-slate-500" style={{ fontFamily: "Tajawal, sans-serif" }}>{item.label}</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-black" style={{ color: item.color, fontFamily: "Cairo, sans-serif" }}>{item.value}</span>
+                  <span className="text-xs font-semibold" style={{ color: item.color }}>{item.unit}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {[
-          { label: "الدخل الشهري", value: "7,500", unit: "ريال",       icon: TrendingUp,   color: "green" },
-          { label: "الإنفاق",      value: "3,920", unit: "ريال",       icon: DollarSign,   color: "blue"  },
-          { label: "الالتزامات",   value: "1,200", unit: "ريال",       icon: AlertTriangle,color: "amber" },
-          { label: "الادخار",      value: "18%",   unit: "من الدخل",   icon: PiggyBank,    color: "teal"  },
-          { label: "الحالة",       value: "ضمن النطاق", unit: "",      icon: CheckCircle2, color: "green" },
-        ].map((card, idx) => (
-          <div key={idx} className={`bg-${card.color}-50 border-2 border-${card.color}-200 rounded-xl p-5`}>
-            <div className="flex items-center justify-between mb-3">
-              <card.icon className={`w-6 h-6 text-${card.color}-600`} />
-            </div>
-            <p className="text-sm text-slate-600 mb-1">{card.label}</p>
-            <p className={`text-2xl font-black text-${card.color}-700`}>{card.value}</p>
-            {card.unit && <p className="text-xs text-slate-500 mt-1">{card.unit}</p>}
-          </div>
-        ))}
-      </div>
-
+      {/* Bottom Row: Savings Goal + Community */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 rounded-2xl p-6 shadow-lg">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-green-900">المبلغ الآمن للإنفاق اليوم</h3>
+        {/* Savings goal */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2" style={{ fontFamily: "Cairo, sans-serif" }}>
+            <PiggyBank size={18} className="text-green-500" /> هدفك هذا الشهر
+          </h3>
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-3xl font-black text-green-600" style={{ fontFamily: "Cairo, sans-serif" }}>310</span>
+            <span className="text-slate-400 text-sm">/ 500 ر.س</span>
           </div>
-          <p className="text-5xl font-black text-green-600 mb-2">64 <span className="text-2xl">ريال</span></p>
-          <p className="text-sm text-green-700">بناءً على ميزانيتك والتزاماتك القادمة</p>
+          <p className="text-xs text-slate-400 mb-3" style={{ fontFamily: "Tajawal, sans-serif" }}>ادخار 500 ريال هذا الشهر</p>
+          <div className="h-3 bg-slate-100 rounded-full overflow-hidden mb-2">
+            <div className="h-full rounded-full" style={{ width: "62%", background: "linear-gradient(90deg,#1D4ED8,#16A34A)" }} />
+          </div>
+          <div className="flex justify-between text-xs text-slate-400">
+            <span>62% مكتمل</span>
+            <span>باقي 190 ر.س</span>
+          </div>
         </div>
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-2xl p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-blue-900">هدف: ادخار 500 ريال</h3>
-            <span className="text-2xl font-black text-blue-600">62%</span>
+
+        {/* Community compare */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2" style={{ fontFamily: "Cairo, sans-serif" }}>
+            <Users size={18} className="text-blue-500" /> مجتمع نبض
+          </h3>
+          <div className="flex flex-col gap-3 mb-4">
+            {[
+              { label: "مؤشر نبضك",                value: 78, color: "#1D4ED8", highlight: true  },
+              { label: "متوسط الأشخاص المشابهين", value: 71, color: "#94A3B8", highlight: false },
+              { label: "أعلى 10%",                 value: 88, color: "#16A34A", highlight: false },
+            ].map((item) => (
+              <div key={item.label} className={`rounded-2xl px-4 py-3 flex items-center gap-3 ${item.highlight ? "bg-blue-50 border border-blue-200" : "bg-slate-50"}`}>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-semibold text-slate-700" style={{ fontFamily: "Tajawal, sans-serif" }}>{item.label}</span>
+                    <span className="text-sm font-black" style={{ color: item.color, fontFamily: "Cairo, sans-serif" }}>{item.value}</span>
+                  </div>
+                  <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${item.value}%`, background: item.color }} />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="w-full bg-blue-200 rounded-full h-4 mb-3">
-            <div className="bg-gradient-to-l from-blue-600 to-green-500 h-4 rounded-full" style={{ width: "62%" }} />
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-blue-700">تم توفير: 310 ريال</span>
-            <span className="text-blue-700">باقي: 190 ريال</span>
+          <div className="bg-green-50 rounded-2xl p-3 flex items-center gap-2">
+            <Shield size={14} className="text-green-600 shrink-0" />
+            <p className="text-xs text-green-700" style={{ fontFamily: "Tajawal, sans-serif" }}>لا تتم مشاركة أي بيانات شخصية.</p>
           </div>
         </div>
       </div>
@@ -103,25 +155,53 @@ function SectionHome({ userName }: { userName: string }) {
 function SectionPulse() {
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-        <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-          <Sparkles className="w-6 h-6 text-primary" />
-          توقع مؤشر النبض — الأيام القادمة
+      {/* Big gauge */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-white text-sm font-semibold mb-6"
+          style={{ background: "linear-gradient(135deg,#1D4ED8,#16A34A)", fontFamily: "Tajawal, sans-serif" }}>
+          <Activity className="w-4 h-4" /> مؤشر النبض المالي
+        </div>
+        <div className="flex justify-center mb-4">
+          <PulseGauge value={78} size={220} label="مستقر ماليًا" />
+        </div>
+        <div className="max-w-xs mx-auto mb-2">
+          <HeartbeatLine color="#1D4ED8" />
+        </div>
+        <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto mt-6">
+          {[
+            { label: "هذا الأسبوع",   value: "+3", color: "#16A34A" },
+            { label: "هذا الشهر",      value: "+8", color: "#16A34A" },
+            { label: "توقع 7 أيام",   value: "−8", color: "#DC2626" },
+          ].map((s) => (
+            <div key={s.label} className="bg-slate-50 rounded-2xl p-3 text-center">
+              <div className="text-xl font-black mb-1" style={{ color: s.color, fontFamily: "Cairo, sans-serif" }}>{s.value}</div>
+              <div className="text-xs text-slate-400" style={{ fontFamily: "Tajawal, sans-serif" }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Forecast chart */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3" style={{ fontFamily: "Cairo, sans-serif" }}>
+          <Sparkles className="w-5 h-5 text-primary" />
+          توقع النبض — الأيام القادمة
         </h2>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={260}>
           <LineChart data={forecastData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="day" stroke="#64748b" style={{ fontSize: "12px" }} />
             <YAxis domain={[60, 85]} stroke="#64748b" style={{ fontSize: "12px" }} />
-            <Tooltip contentStyle={{ backgroundColor: "white", border: "2px solid #1D4ED8", borderRadius: "8px", direction: "rtl" }} />
+            <Tooltip contentStyle={{ backgroundColor: "white", border: "2px solid #1D4ED8", borderRadius: "12px", direction: "rtl" }} />
             <Line type="monotone" dataKey="score" stroke="#1D4ED8" strokeWidth={3} dot={{ fill: "#1D4ED8", r: 5 }} activeDot={{ r: 7 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-        <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-          <Target className="w-6 h-6 text-primary" />
+      {/* Factors */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+        <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-3" style={{ fontFamily: "Cairo, sans-serif" }}>
+          <Target className="w-5 h-5 text-primary" />
           تحليل العوامل
         </h2>
         <div className="space-y-4">
@@ -131,8 +211,8 @@ function SectionPulse() {
                 <span className="font-semibold text-slate-700">{f.label}</span>
                 <span className={`text-sm font-bold text-${f.color}-600`}>{f.status}</span>
               </div>
-              <div className="w-full bg-slate-200 rounded-full h-3">
-                <div className={`bg-gradient-to-l from-${f.color}-500 to-${f.color}-600 h-3 rounded-full`} style={{ width: `${f.value}%` }} />
+              <div className="w-full bg-slate-100 rounded-full h-2.5">
+                <div className={`bg-gradient-to-l from-${f.color}-500 to-${f.color}-600 h-2.5 rounded-full`} style={{ width: `${f.value}%` }} />
               </div>
             </div>
           ))}

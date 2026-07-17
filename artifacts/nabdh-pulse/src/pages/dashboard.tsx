@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Logo } from "@/components/Logo";
 import { PulseGauge } from "@/components/PulseGauge";
 import { HeartbeatLine } from "@/components/HeartbeatLine";
@@ -10,6 +10,7 @@ import {
   TrendingUp, DollarSign, PiggyBank, CheckCircle2, AlertTriangle,
   Sparkles, Send, Zap, Target, CircleDollarSign, LogOut, User,
   ChevronLeft, ShoppingCart, CreditCard, Calculator, Shield,
+  BellOff, BellRing, Trash2, CheckCheck, RefreshCw, Info, TriangleAlert, Star,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -228,23 +229,224 @@ function SectionPulse() {
   );
 }
 
+// ── Notification helpers ───────────────────────────────────────────────────────
+type AppNotif = {
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "warning" | "alert" | "success";
+  isRead: boolean;
+  createdAt: string;
+};
+
+function notifColors(type: AppNotif["type"]) {
+  return {
+    info:    { bg: "#EFF6FF", border: "#BFDBFE", text: "#1D4ED8", icon: Info        },
+    warning: { bg: "#FFFBEB", border: "#FDE68A", text: "#D97706", icon: TriangleAlert},
+    alert:   { bg: "#FFF1F2", border: "#FECDD3", text: "#E11D48", icon: BellRing    },
+    success: { bg: "#F0FDF4", border: "#BBF7D0", text: "#16A34A", icon: Star        },
+  }[type];
+}
+
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return "الآن";
+  if (m < 60) return `منذ ${m} دقيقة`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `منذ ${h} ساعة`;
+  return `منذ ${Math.floor(h / 24)} يوم`;
+}
+
+function useBrowserNotifPermission() {
+  const [perm, setPerm] = useState<NotificationPermission>(
+    typeof Notification !== "undefined" ? Notification.permission : "denied"
+  );
+  const request = useCallback(async () => {
+    if (!("Notification" in window)) return;
+    const result = await Notification.requestPermission();
+    setPerm(result);
+  }, []);
+  return { perm, request };
+}
+
+function fireBrowserNotif(title: string, body: string) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  new Notification(title, { body, icon: "/favicon.svg", dir: "rtl", lang: "ar" });
+}
+
 function SectionAlerts() {
+  const [notifs, setNotifs]   = useState<AppNotif[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGen]  = useState(false);
+  const firedRef = useRef<Set<string>>(new Set());
+  const { perm, request } = useBrowserNotifPermission();
+
+  const fetchNotifs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications", { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setNotifs(data.notifications ?? []);
+      return data.notifications as AppNotif[];
+    } catch { return []; }
+    finally { setLoading(false); }
+  }, []);
+
+  // Generate smart notifications on first load if none exist
+  const generate = useCallback(async () => {
+    setGen(true);
+    try {
+      const res = await fetch("/api/notifications/generate", { method: "POST", credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setNotifs(data.notifications ?? []);
+      return data.notifications as AppNotif[];
+    } catch { return []; }
+    finally { setGen(false); }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifs().then((list) => {
+      if (!list || list.length === 0) generate();
+    });
+  }, [fetchNotifs, generate]);
+
+  // Fire browser notifications for new unread items
+  useEffect(() => {
+    if (perm !== "granted") return;
+    notifs.filter(n => !n.isRead).forEach(n => {
+      if (!firedRef.current.has(n.id)) {
+        firedRef.current.add(n.id);
+        fireBrowserNotif(n.title, n.message);
+      }
+    });
+  }, [notifs, perm]);
+
+  const markRead = async (id: string) => {
+    setNotifs(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    await fetch(`/api/notifications/${id}/read`, { method: "PUT", credentials: "include" }).catch(() => {});
+  };
+
+  const remove = async (id: string) => {
+    setNotifs(prev => prev.filter(n => n.id !== id));
+    await fetch(`/api/notifications/${id}`, { method: "DELETE", credentials: "include" }).catch(() => {});
+  };
+
+  const markAllRead = async () => {
+    setNotifs(prev => prev.map(n => ({ ...n, isRead: true })));
+    await fetch("/api/notifications/read-all", { method: "PUT", credentials: "include" }).catch(() => {});
+  };
+
+  const unread = notifs.filter(n => !n.isRead).length;
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-      <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-        <Bell className="w-6 h-6 text-primary" />
-        التنبيهات الذكية
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {alerts.map((a, idx) => (
-          <div key={idx} className={`bg-${a.color}-50 border-2 border-${a.color}-200 rounded-xl p-4 flex items-start gap-3`}>
-            <Bell className={`w-5 h-5 text-${a.color}-600 flex-shrink-0 mt-0.5`} />
-            <div>
-              <h4 className={`font-bold text-${a.color}-900 mb-1`}>{a.title}</h4>
-              <p className={`text-sm text-${a.color}-700`}>{a.desc}</p>
-            </div>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2" style={{ fontFamily: "Cairo, sans-serif" }}>
+            <Bell className="w-5 h-5 text-primary" />
+            التنبيهات الذكية
+            {unread > 0 && (
+              <span className="text-xs bg-red-500 text-white rounded-full px-2 py-0.5 font-bold">{unread}</span>
+            )}
+          </h2>
+          <div className="flex items-center gap-2">
+            {unread > 0 && (
+              <button onClick={markAllRead}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                style={{ fontFamily: "Tajawal, sans-serif" }}>
+                <CheckCheck className="w-3.5 h-3.5" /> قراءة الكل
+              </button>
+            )}
+            <button onClick={() => generate()}
+              disabled={generating}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              style={{ fontFamily: "Tajawal, sans-serif" }}>
+              <RefreshCw className={`w-3.5 h-3.5 ${generating ? "animate-spin" : ""}`} /> تحديث
+            </button>
           </div>
-        ))}
+        </div>
+
+        {/* Browser notification permission banner */}
+        {perm === "default" && (
+          <div className="mb-5 bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <BellRing className="w-5 h-5 text-blue-600 shrink-0" />
+              <div>
+                <p className="font-semibold text-blue-900 text-sm" style={{ fontFamily: "Cairo, sans-serif" }}>فعّل إشعارات المتصفح</p>
+                <p className="text-xs text-blue-700" style={{ fontFamily: "Tajawal, sans-serif" }}>احصل على تنبيهات فورية حتى عندما تكون على تبويب آخر</p>
+              </div>
+            </div>
+            <button onClick={request}
+              className="shrink-0 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+              style={{ fontFamily: "Tajawal, sans-serif" }}>
+              تفعيل
+            </button>
+          </div>
+        )}
+
+        {perm === "granted" && (
+          <div className="mb-5 bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+            <p className="text-sm text-green-700" style={{ fontFamily: "Tajawal, sans-serif" }}>إشعارات المتصفح مفعّلة — ستصلك التنبيهات تلقائياً</p>
+          </div>
+        )}
+
+        {perm === "denied" && (
+          <div className="mb-5 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-2">
+            <BellOff className="w-4 h-4 text-slate-500 shrink-0" />
+            <p className="text-sm text-slate-600" style={{ fontFamily: "Tajawal, sans-serif" }}>الإشعارات محجوبة — فعّلها من إعدادات المتصفح</p>
+          </div>
+        )}
+
+        {/* Notification list */}
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <RefreshCw className="w-6 h-6 text-slate-400 animate-spin" />
+          </div>
+        ) : notifs.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <Bell className="w-10 h-10 mx-auto mb-3 opacity-40" />
+            <p style={{ fontFamily: "Tajawal, sans-serif" }}>لا توجد إشعارات حالياً</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {notifs.map(n => {
+              const c = notifColors(n.type);
+              const Icon = c.icon;
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => !n.isRead && markRead(n.id)}
+                  className={`rounded-2xl border p-4 flex items-start gap-3 cursor-pointer transition-all ${!n.isRead ? "shadow-sm" : "opacity-70"}`}
+                  style={{ background: c.bg, borderColor: c.border }}
+                >
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                    style={{ background: c.text + "20" }}>
+                    <Icon className="w-4 h-4" style={{ color: c.text }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-bold text-sm text-slate-800" style={{ fontFamily: "Cairo, sans-serif" }}>{n.title}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!n.isRead && <span className="w-2 h-2 bg-red-500 rounded-full" />}
+                        <span className="text-xs text-slate-400">{timeAgo(n.createdAt)}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); remove(n.id); }}
+                          className="p-0.5 rounded hover:bg-slate-200 transition-colors text-slate-400 hover:text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed" style={{ fontFamily: "Tajawal, sans-serif" }}>{n.message}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -516,6 +718,16 @@ export default function DashboardPage() {
   const userName = user?.name ?? "زائر";
   const userEmail = user?.email ?? "";
 
+  // Unread notifications badge
+  const [unreadCount, setUnreadCount] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/notifications", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setUnreadCount(d.unreadCount ?? 0); })
+      .catch(() => {});
+  }, [user]);
+
   // Read ?section= from URL to support deep-linking from other pages
   const [active, setActive] = useState<SectionKey>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -571,14 +783,25 @@ export default function DashboardPage() {
             ) : (
               <button
                 key={item.key}
-                onClick={() => { setActive(item.key as SectionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                onClick={() => {
+                  setActive(item.key as SectionKey);
+                  if (item.key === "alerts") setUnreadCount(0);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-semibold transition-all ${
                   active === item.key
                     ? "bg-gradient-to-l from-primary to-secondary text-white shadow-lg"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                <item.icon className="w-5 h-5 shrink-0" />
+                <div className="relative shrink-0">
+                  <item.icon className="w-5 h-5" />
+                  {item.key === "alerts" && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </div>
                 <span>{item.label}</span>
               </button>
             )

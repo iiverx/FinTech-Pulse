@@ -79,6 +79,72 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return Notification.requestPermission();
 }
 
+// ── Service Worker registration ───────────────────────────────────────────────
+
+let _swRegistration: ServiceWorkerRegistration | null = null;
+
+/** Register /sw.js once and cache the registration for later use. */
+export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
+  try {
+    if (_swRegistration) return _swRegistration;
+    _swRegistration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    return _swRegistration;
+  } catch (err) {
+    console.warn("[nabdh] SW registration failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Post the current reminder prefs + wallet snapshot to the Service Worker so
+ * it can fire a background notification even when the tab is closed.
+ * Also attempts to register a Periodic Background Sync (Chrome/Edge).
+ */
+export async function scheduleServiceWorkerReminder(
+  prefs: ReminderPrefs,
+  balance: number,
+  goal: number,
+): Promise<void> {
+  const reg = await registerServiceWorker();
+  if (!reg) return;
+
+  // Wait for the SW to be ready to receive messages
+  const sw = reg.active ?? reg.waiting ?? reg.installing;
+  if (!sw) return;
+
+  // Send the payload so the SW stores it in Cache API
+  sw.postMessage({
+    type: "SCHEDULE_REMINDER",
+    payload: { ...prefs, balance, goal, lastFired: null },
+  });
+
+  // Attempt Periodic Background Sync (gracefully ignored if unsupported)
+  if ("periodicSync" in reg && prefs.enabled && Notification.permission === "granted") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (reg as any).periodicSync.register("nabdh-savings-reminder", {
+        minInterval: 60 * 60 * 1000, // minimum 1 hour — browser decides actual cadence
+      });
+    } catch {
+      // periodicSync.register may throw if the browser denies it (low engagement, etc.)
+    }
+  }
+}
+
+/**
+ * Send a heartbeat CHECK_REMINDER message to the active SW.
+ * Called every minute from the savings page so the SW can fire the notification
+ * even without Periodic Background Sync (covers the "tab open" case cleanly).
+ */
+export async function pingServiceWorkerCheck(): Promise<void> {
+  const reg = _swRegistration ?? await registerServiceWorker();
+  if (!reg) return;
+  const sw = reg.active ?? reg.waiting;
+  if (sw) sw.postMessage({ type: "CHECK_REMINDER" });
+}
+
+/** Returns true if a reminder has already been fired for the current hour today. */
 export function hasReminderFiredThisPeriod(): boolean {
   try {
     const stored = localStorage.getItem(LAST_REMINDER_FIRED);

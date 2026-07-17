@@ -8,6 +8,7 @@ import {
   loadReminderPrefs, saveReminderPrefs, checkAndRecordVisit,
   requestNotificationPermission, fireReminderNotification,
   checkReminderShouldFire,
+  registerServiceWorker, scheduleServiceWorkerReminder, pingServiceWorkerCheck,
   type ReminderPrefs,
 } from "@/hooks/useSavingsWallet";
 import {
@@ -103,11 +104,18 @@ export default function SavingsPage() {
   useEffect(() => {
     const missed = checkAndRecordVisit();
     if (missed) setPrevMonthBanner(missed);
+    // Register the Service Worker once on page load
+    registerServiceWorker();
   }, []);
 
-  // ── In-session reminder scheduler (checks every minute while tab is open) ──
+  // ── Reminder scheduler (every minute while tab is open) ──────────────
+  // Primary path: delegate to Service Worker (works even when tab is closed).
+  // Fallback path: in-session Notification API (when SW is unavailable).
   useEffect(() => {
-    const run = () => {
+    const run = async () => {
+      // SW heartbeat — lets the SW fire the notification using stored prefs
+      await pingServiceWorkerCheck();
+      // Fallback: fire directly if SW check didn't handle it (e.g. SW not active)
       if (checkReminderShouldFire(reminderPrefs)) {
         fireReminderNotification("وقت مراجعة مدخراتك! افتح محفظتك وأضف توفيرًا جديدًا 🪙");
       }
@@ -122,6 +130,8 @@ export default function SavingsPage() {
     setReminderPrefsState(prefs);
     setShowReminderSaved(true);
     setTimeout(() => setShowReminderSaved(false), 3000);
+    // Schedule via Service Worker (includes balance + goal progress in notification)
+    scheduleServiceWorkerReminder(prefs, state.balance, state.goal);
   };
 
   const handleRequestNotif = async () => {
@@ -562,7 +572,7 @@ export default function SavingsPage() {
             </div>
 
             <p className="text-xs text-slate-400 mt-3 text-center">
-              التذكير يظهر عند زيارة الموقع في اليوم والوقت المحدد وكإشعار متصفح إن أتحت الصلاحية.
+              التذكير يُرسل كإشعار متصفح في اليوم والوقت المحدد — حتى عند إغلاق التبويب إن كان المتصفح يدعم الإشعارات في الخلفية.
             </p>
           </div>
 

@@ -1,1 +1,2 @@
 - [Nabd Backend Architecture](nabd-backend.md) — full backend built; connect-pg-simple must stay external in esbuild or sessions break
+- [Nabdh Scoring Engine](nabdh-engine.md) — Python algorithm ported to TS; weights, caps, validation cases, and DB column mapping

@@ -18,15 +18,61 @@ import { eq } from "drizzle-orm";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function computeCommunityPulseScore(inc: number, spend: number, save: number, oblig: number): number {
-  if (inc === 0) return 50;
-  const spendRatio = spend / inc;
-  const spendScore = spendRatio <= 0.40 ? 100 : spendRatio <= 0.55 ? 80 : spendRatio <= 0.70 ? 60 : spendRatio <= 0.85 ? 35 : 10;
-  const saveRate = save / inc;
-  const saveScore = saveRate >= 0.20 ? 100 : saveRate >= 0.10 ? 75 : saveRate >= 0.05 ? 50 : 25;
-  const obligRatio = oblig / inc;
-  const obligScore = obligRatio <= 0.20 ? 100 : obligRatio <= 0.30 ? 75 : obligRatio <= 0.40 ? 50 : 25;
-  return Math.round(spendScore * 0.35 + saveScore * 0.35 + obligScore * 0.30);
+// ── Nabdh Engine (inline for seed — avoids circular build deps) ───────────────
+// Exact same functions as nabdh-engine.service.ts
+function _scoreSavings(r: number): number { return r >= 0.20 ? 100 : r <= 0 ? 0 : (r / 0.20) * 100; }
+function _scoreDebt(r: number): number { return r <= 0.10 ? 100 : r >= 0.36 ? 0 : 100 - ((r - 0.10) / 0.26) * 100; }
+function _scoreHousing(r: number): number { return r <= 0.30 ? 100 : r >= 0.50 ? 0 : 100 - ((r - 0.30) / 0.20) * 100; }
+function _scoreBalance(r: number): number { return r <= -0.10 ? 0 : r >= 0.15 ? 100 : ((r + 0.10) / 0.25) * 100; }
+function _scoreTrend(slope: number): number { return slope >= 0.003 ? 100 : slope <= -0.006 ? 0 : ((slope + 0.006) / 0.009) * 100; }
+function _scoreVolatility(vol: number): number { return vol <= 0.003 ? 100 : vol >= 0.02 ? 0 : 100 - ((vol - 0.003) / 0.017) * 100; }
+function _deficitCap(r: number): number { return r >= 0 ? 100 : 65 - Math.min(Math.abs(r) / 0.10, 1.0) * 30; }
+function _debtCap(r: number): number { return r <= 0.36 ? 100 : 75 - Math.min((r - 0.36) / 0.20, 1.0) * 45; }
+function _slope(vals: number[]): number {
+  const n = vals.length;
+  if (n < 2 || vals.every(v => v === vals[0])) return 0;
+  const mx = (n - 1) / 2;
+  const my = vals.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (i - mx) * (vals[i] - my); den += (i - mx) ** 2; }
+  return den === 0 ? 0 : num / den;
+}
+function _std(vals: number[]): number {
+  if (vals.length < 2) return 0;
+  const m = vals.reduce((a, b) => a + b, 0) / vals.length;
+  return Math.sqrt(vals.reduce((a, v) => a + (v - m) ** 2, 0) / (vals.length - 1));
+}
+
+interface MonthlyRow { income: number; housing: number; food: number; transport: number; entertainment: number; savings: number; loans: number; subscriptions: number; remainingBalance: number; }
+
+function computeCommunityPulseScore(months: MonthlyRow[]): number {
+  if (months.length === 0) return 50;
+  const scored = months.map(m => {
+    const inc = m.income > 0 ? m.income : 1;
+    return {
+      savingsRatio:  m.savings / inc,
+      debtRatio:     m.loans / inc,
+      housingRatio:  m.housing / inc,
+      balanceRatio:  m.remainingBalance / inc,
+      sS: _scoreSavings(m.savings / inc),
+      sD: _scoreDebt(m.loans / inc),
+      sH: _scoreHousing(m.housing / inc),
+      sB: _scoreBalance(m.remainingBalance / inc),
+    };
+  });
+  const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const balRatios = scored.map(s => s.balanceRatio);
+  const trend  = months.length >= 2 ? _slope(balRatios) : 0;
+  const vol    = months.length >= 2 ? _std(balRatios) : 0;
+  const raw =
+    avg(scored.map(s => s.sS)) * 0.15 +
+    avg(scored.map(s => s.sD)) * 0.20 +
+    avg(scored.map(s => s.sH)) * 0.10 +
+    avg(scored.map(s => s.sB)) * 0.30 +
+    _scoreTrend(trend)       * 0.15 +
+    (months.length >= 2 ? _scoreVolatility(vol) : 50) * 0.10;
+  const cap = Math.min(_deficitCap(avg(balRatios)), _debtCap(avg(scored.map(s => s.debtRatio))));
+  return Math.round(Math.max(0, Math.min(100, Math.min(raw, cap))));
 }
 
 function getIncomeBracket(salary: number): string {
@@ -152,13 +198,26 @@ async function main() {
     console.log("✅ Transactions created (3,920 SAR spent)");
   }
 
-  // Pulse score
+  // Pulse score — computed using Nabdh engine from Sara's actual seeded data
+  // income=7500, housing=0, food=620, transport=310, entertainment=190,
+  // savings=500, loans=1200, subscriptions=180, remaining=4500
+  const saraMonthlyRows: MonthlyRow[] = [{
+    income: 7500, housing: 0, food: 620, transport: 310, entertainment: 190,
+    savings: 500, loans: 1200, subscriptions: 180, remainingBalance: 4500,
+  }];
+  const saraPulse = computeCommunityPulseScore(saraMonthlyRows);
   await db.insert(financialPulseTable).values({
-    userId: saraId, score: 78, status: "مستقر مالياً",
-    spendingIncomeRatio: 75, budgetCommitment: 80, savingGrowth: 70,
-    obligationsScore: 85, behaviorScore: 80, goalsScore: 65,
+    userId: saraId,
+    score: saraPulse,
+    status: saraPulse >= 70 ? "مستقر" : saraPulse >= 40 ? "متوسط" : "في خطر",
+    spendingIncomeRatio: Math.round((1200 / 7500) * 100),  // debt ratio %
+    savingGrowth:        Math.round(_scoreSavings(500 / 7500)),
+    obligationsScore:    Math.round(_scoreDebt(1200 / 7500)),
+    budgetCommitment:    Math.round(_scoreBalance(4500 / 7500)),
+    behaviorScore:       50, // trend = neutral (1 month)
+    goalsScore:          50, // volatility = neutral (1 month)
   });
-  console.log("✅ Pulse score recorded (78/100)");
+  console.log(`✅ Pulse score (Nabdh engine): ${saraPulse}/100`);
 
   // Notifications
   const existingNotifs = await db.select().from(notificationsTable).where(eq(notificationsTable.userId, saraId));
@@ -178,10 +237,13 @@ async function main() {
   if (existingComm.length) {
     console.log("ℹ️  Community profiles already exist");
   } else {
-    // Try multiple possible paths for the CSV
+    // Try multiple possible paths for the CSV (newest file first)
     const possiblePaths = [
+      "/home/runner/workspace/attached_assets/Nabd_12_Months_Clean01_1784277638917.csv",
       "/home/runner/workspace/attached_assets/Nabd_12_Months_Clean01_1784219231240.csv",
+      path.join(__dirname, "../../../attached_assets/Nabd_12_Months_Clean01_1784277638917.csv"),
       path.join(__dirname, "../../../attached_assets/Nabd_12_Months_Clean01_1784219231240.csv"),
+      path.join(process.cwd(), "attached_assets/Nabd_12_Months_Clean01_1784277638917.csv"),
       path.join(process.cwd(), "attached_assets/Nabd_12_Months_Clean01_1784219231240.csv"),
     ];
     const csvPath = possiblePaths.find(p => fs.existsSync(p));
@@ -201,14 +263,29 @@ async function main() {
 
       const profiles = [];
       for (const [uid, months] of userMap.entries()) {
-        const avg = (key: keyof CsvRow) =>
+        // Build full MonthlyRow array for Nabdh engine (trend + volatility)
+        const monthlyRows: MonthlyRow[] = months.map(r => ({
+          income:           r.Monthly_Income,
+          housing:          r.Housing,
+          food:             r.Food,
+          transport:        r.Transport,
+          entertainment:    r.Entertainment,
+          savings:          r.Savings,
+          loans:            r.Loans,
+          subscriptions:    r.Subscriptions,
+          remainingBalance: r.Remaining_Balance,
+        }));
+
+        const numAvg = (key: keyof CsvRow) =>
           Math.round(months.reduce((a, r) => a + (r[key] as number), 0) / months.length);
 
-        const avgIncome   = avg("Monthly_Income");
-        const avgSavings  = avg("Savings");
-        const avgLoans    = avg("Loans");
-        const avgSpend    = avg("Housing") + avg("Food") + avg("Transport") + avg("Entertainment") + avg("Subscriptions");
-        const pulseScore  = computeCommunityPulseScore(avgIncome, avgSpend, avgSavings, avgLoans);
+        const avgIncome  = numAvg("Monthly_Income");
+        const avgSavings = numAvg("Savings");
+        const avgLoans   = numAvg("Loans");
+        const avgSpend   = numAvg("Housing") + numAvg("Food") + numAvg("Transport") + numAvg("Entertainment") + numAvg("Subscriptions");
+
+        // Use Nabdh engine with full 12-month history (includes trend & volatility)
+        const pulseScore = computeCommunityPulseScore(monthlyRows);
 
         profiles.push({
           csvUserId: uid,

@@ -4,6 +4,7 @@ import { Logo } from "@/components/Logo";
 import { WalletGraphic } from "@/components/WalletGraphic";
 import { CoinAnimation } from "@/components/CoinAnimation";
 import { useSavingsWallet } from "@/hooks/useSavingsWallet";
+import { useAuth } from "@/hooks/useAuth";
 import {
   loadReminderPrefs, saveReminderPrefs, checkAndRecordVisit,
   requestNotificationPermission, fireReminderNotification,
@@ -15,6 +16,7 @@ import {
   Home, Activity, Wallet, Bell, Brain, Users, Settings,
   TrendingUp, Target, Zap, Plus, X, Star, Trophy,
   Sparkles, PiggyBank, ArrowDown, Clock, Calendar, CircleDollarSign,
+  LogOut, RotateCcw,
 } from "lucide-react";
 
 const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -77,7 +79,9 @@ function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number; pr
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function SavingsPage() {
+  const { user, logout } = useAuth();
   const { state, addSaving, setGoal, getMonthlyReport, getInsights, level, progressPct, reset } = useSavingsWallet();
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showModal,  setShowModal]  = useState(false);
   const [modalTx,    setModalTx]    = useState<typeof SAMPLE_TRANSACTIONS[0] | null>(null);
   const [inputAmt,   setInputAmt]   = useState("");
@@ -176,25 +180,45 @@ export default function SavingsPage() {
     <div className="min-h-screen bg-slate-50 flex" dir="rtl">
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className="w-72 bg-white border-l border-slate-200 flex flex-col shrink-0">
-        <div className="p-6 border-b border-slate-200">
-          <Logo imageClassName="h-10" />
+        {/* Header: logo + user + logout */}
+        <div className="p-4 border-b border-slate-200">
+          <Logo imageClassName="h-8" />
+          {user && (
+            <div className="mt-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-sm font-bold shrink-0">
+                  {user.name?.[0] ?? "؟"}
+                </div>
+                <span className="text-sm font-semibold text-slate-700 truncate">{user.name}</span>
+              </div>
+              <button
+                onClick={() => logout()}
+                title="تسجيل الخروج"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-red-500 hover:bg-red-50 border border-red-200 transition-all shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                خروج
+              </button>
+            </div>
+          )}
         </div>
-        <nav className="flex-1 p-4 space-y-2">
+
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {[
-            { icon: Home,     label: "الرئيسية",        href: "/dashboard",                    active: false },
-            { icon: Activity, label: "مؤشر النبض",      href: "/dashboard?section=pulse",      active: false },
-            { icon: Wallet,   label: "المحفظة الذكية",  href: "/savings",                      active: true  },
-            { icon: Bell,     label: "التنبيهات",       href: "/dashboard?section=alerts",     active: false },
-            { icon: Zap,      label: "المحاكاة",        href: "/dashboard?section=simulation", active: false },
-            { icon: CircleDollarSign, label: "الحاسبة الذكية", href: "/calculator",            active: false },
-            { icon: Brain,    label: "المساعد الذكي",   href: "/dashboard?section=assistant",  active: false },
-            { icon: Users,    label: "مجتمع نبض",       href: "/dashboard?section=community",  active: false },
-            { icon: Settings, label: "الإعدادات",       href: "/dashboard?section=settings",   active: false },
+            { icon: Home,             label: "الرئيسية",        href: "/dashboard",                    active: false },
+            { icon: Activity,         label: "مؤشر النبض",      href: "/dashboard?section=pulse",      active: false },
+            { icon: Wallet,           label: "المحفظة الذكية",  href: "/savings",                      active: true  },
+            { icon: Bell,             label: "التنبيهات",       href: "/dashboard?section=alerts",     active: false },
+            { icon: Zap,              label: "المحاكاة",        href: "/dashboard?section=simulation", active: false },
+            { icon: CircleDollarSign, label: "الحاسبة الذكية", href: "/calculator",                   active: false },
+            { icon: Brain,            label: "المساعد الذكي",   href: "/dashboard?section=assistant",  active: false },
+            { icon: Users,            label: "مجتمع نبض",       href: "/dashboard?section=community",  active: false },
+            { icon: Settings,         label: "الإعدادات",       href: "/dashboard?section=settings",   active: false },
           ].map((item, idx) => (
             <Link
               key={idx}
               href={item.href}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-semibold transition-all ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg font-semibold transition-all ${
                 item.active
                   ? "bg-gradient-to-l from-primary to-secondary text-white shadow-lg"
                   : "text-slate-600 hover:bg-slate-100"
@@ -205,16 +229,49 @@ export default function SavingsPage() {
             </Link>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-200 space-y-2">
-          <button onClick={reset} className="text-xs text-slate-400 hover:text-red-500 transition-colors">
+
+        {/* Footer: reset wallet */}
+        <div className="p-4 border-t border-slate-200">
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-red-500 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all"
+          >
+            <RotateCcw className="w-4 h-4" />
             إعادة ضبط المحفظة
           </button>
-          <br />
-          <Link href="/" className="text-sm text-slate-500 hover:text-primary transition-colors">
-            تسجيل الخروج
-          </Link>
         </div>
       </aside>
+
+      {/* ── Reset confirmation dialog ─────────────────────────────────────── */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <RotateCcw className="w-5 h-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">إعادة ضبط المحفظة؟</h3>
+            </div>
+            <p className="text-slate-600 text-sm mb-6">
+              سيتم حذف جميع بيانات المحفظة المحلية بشكل نهائي. هذا الإجراء لا يمكن التراجع عنه.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { reset(); setShowResetConfirm(false); }}
+                className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors"
+              >
+                نعم، إعادة الضبط
+              </button>
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold transition-colors"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto">

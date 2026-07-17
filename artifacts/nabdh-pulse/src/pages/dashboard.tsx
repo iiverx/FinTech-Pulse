@@ -302,47 +302,119 @@ function SectionSimulation() {
 }
 
 function SectionAssistant() {
-  const [messages, setMessages] = useState([
-    { from: "user", text: "كيف يمكنني تحسين مؤشر نبضي؟" },
-    { from: "bot",  text: "يمكنك تحسين مؤشرك بتقليل الإنفاق على المطاعم بنسبة 20% وزيادة الادخار الشهري. هذا سيرفع مؤشرك إلى 84 خلال شهرين." },
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([
+    { from: "bot", text: "مرحباً! أنا مساعدك المالي الذكي. اسألني عن ميزانيتك، ادخارك، التزاماتك، أو أي قرار مالي تريد مشورة فيه." },
   ]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const send = () => {
-    if (!input.trim()) return;
-    setMessages(m => [...m, { from: "user", text: input }, { from: "bot", text: "شكراً على سؤالك! سأحلل وضعك المالي وأعود إليك بتوصية مفصّلة قريباً." }]);
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
+  const send = async () => {
+    const q = input.trim();
+    if (!q || loading) return;
     setInput("");
+    setMessages(m => [...m, { from: "user", text: q }]);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/assistant/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ question: q }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `خطأ ${res.status}`);
+      }
+      const data = await res.json();
+      setMessages(m => [...m, { from: "bot", text: data.response }]);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "حدث خطأ";
+      setMessages(m => [...m, { from: "bot", text: `عذراً، ${msg}. تأكد من تسجيل الدخول وحاول مجدداً.` }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => { scrollToBottom(); }, [messages, loading]);
+
+  const QUICK = ["كيف أحسّن مؤشر نبضي؟", "حلّل ميزانيتي هذا الشهر", "نصائح لزيادة ادخاري", "وضع التزاماتي"];
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-      <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-        <Brain className="w-6 h-6 text-primary" />
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col" style={{ minHeight: 560 }}>
+      <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-3" style={{ fontFamily: "Cairo, sans-serif" }}>
+        <Brain className="w-5 h-5 text-primary" />
         المساعد المالي الذكي
       </h2>
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 h-72 overflow-y-auto mb-4 space-y-4">
+
+      {/* Quick prompts */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {QUICK.map(q => (
+          <button
+            key={q}
+            onClick={() => { setInput(q); }}
+            className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors"
+            style={{ fontFamily: "Tajawal, sans-serif" }}
+          >
+            {q}
+          </button>
+        ))}
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl p-4 overflow-y-auto mb-4 space-y-3" style={{ maxHeight: 360 }}>
         {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`rounded-2xl px-5 py-3 max-w-md text-sm ${
+          <div key={i} className={`flex items-end gap-2 ${m.from === "user" ? "justify-end" : "justify-start"}`}>
+            {m.from === "bot" && (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+                <Brain className="w-4 h-4 text-white" />
+              </div>
+            )}
+            <div className={`rounded-2xl px-4 py-3 max-w-sm text-sm leading-relaxed ${
               m.from === "user"
                 ? "bg-gradient-to-l from-primary to-secondary text-white rounded-bl-sm"
-                : "bg-white border-2 border-slate-300 text-slate-800 rounded-br-sm"
-            }`}>
+                : "bg-white border border-slate-200 text-slate-800 rounded-br-sm shadow-sm"
+            }`} style={{ fontFamily: "Tajawal, sans-serif" }}>
               {m.text}
             </div>
           </div>
         ))}
+        {loading && (
+          <div className="flex items-end gap-2 justify-start">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+              <Brain className="w-4 h-4 text-white" />
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl rounded-br-sm px-4 py-3 shadow-sm">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
+
+      {/* Input */}
       <div className="flex gap-2">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
+          disabled={loading}
           placeholder="اكتب سؤالك المالي هنا..."
-          className="flex-1 px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-primary focus:outline-none"
+          className="flex-1 px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none text-sm disabled:opacity-50"
+          style={{ fontFamily: "Tajawal, sans-serif", direction: "rtl" }}
         />
-        <button onClick={send} className="px-6 py-3 bg-gradient-to-l from-primary to-secondary text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+        <button
+          onClick={send}
+          disabled={loading || !input.trim()}
+          className="px-5 py-3 bg-gradient-to-l from-primary to-secondary text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-40"
+        >
           <Send className="w-5 h-5" />
         </button>
       </div>

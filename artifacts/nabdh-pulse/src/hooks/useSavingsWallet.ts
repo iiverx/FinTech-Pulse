@@ -88,7 +88,8 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
   try {
     if (_swRegistration) return _swRegistration;
-    _swRegistration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    const base = import.meta.env.BASE_URL ?? "/";
+    _swRegistration = await navigator.serviceWorker.register(`${base}sw.js`, { scope: base });
     return _swRegistration;
   } catch (err) {
     console.warn("[nabdh] SW registration failed:", err);

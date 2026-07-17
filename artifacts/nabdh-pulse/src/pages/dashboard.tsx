@@ -3,6 +3,7 @@ import { Logo } from "@/components/Logo";
 import { PulseGauge } from "@/components/PulseGauge";
 import { HeartbeatLine } from "@/components/HeartbeatLine";
 import { HeroScene } from "@/components/HeroScene";
+import { ProfileModal } from "@/components/ProfileModal";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -718,6 +719,8 @@ export default function DashboardPage() {
   const userName = user?.name ?? "زائر";
   const userEmail = user?.email ?? "";
 
+  const [profileOpen, setProfileOpen] = useState(false);
+
   // Unread notifications badge
   const [unreadCount, setUnreadCount] = useState(0);
   useEffect(() => {
@@ -810,14 +813,24 @@ export default function DashboardPage() {
 
         <div className="p-4 border-t border-slate-200 space-y-1">
           {user && (
-            <div className="px-2 pb-2 border-b border-slate-100 mb-2">
-              <p className="text-sm font-semibold text-slate-800 truncate">{user.name}</p>
-              <p className="text-xs text-slate-400 truncate">{user.email}</p>
-            </div>
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="w-full flex items-center gap-3 px-2 py-2 mb-2 rounded-xl hover:bg-slate-50 transition-colors group text-right"
+            >
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-black text-base shrink-0 select-none"
+                style={{ fontFamily: "Cairo, sans-serif" }}>
+                {user.name?.[0] ?? "؟"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary transition-colors">{user.name}</p>
+                <p className="text-xs text-slate-400 truncate">{user.email}</p>
+              </div>
+              <User className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors shrink-0" />
+            </button>
           )}
           <button
             onClick={() => logout()}
-            className="flex items-center gap-2 text-sm text-slate-500 hover:text-red-500 transition-colors"
+            className="flex items-center gap-2 text-sm text-slate-500 hover:text-red-500 transition-colors px-2"
           >
             <LogOut className="w-4 h-4" />
             تسجيل الخروج
@@ -831,6 +844,8 @@ export default function DashboardPage() {
           {sections[active]}
         </div>
       </main>
+
+      <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 }

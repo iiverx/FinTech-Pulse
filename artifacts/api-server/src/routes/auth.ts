@@ -104,6 +104,66 @@ router.post("/auth/login", async (req, res) => {
   }
 });
 
+// ── PUT /api/auth/change-password ────────────────────────────────────────────
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل"),
+});
+
+router.put("/auth/change-password", async (req, res) => {
+  if (!req.session.userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+  const parsed = changePasswordSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }); return; }
+
+  const { currentPassword, newPassword } = parsed.data;
+  try {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.session.userId));
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) { res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة" }); return; }
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, user.id));
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Failed to change password" });
+  }
+});
+
+// ── PUT /api/auth/change-email ────────────────────────────────────────────────
+const changeEmailSchema = z.object({
+  newEmail: z.string().email("البريد الإلكتروني غير صحيح"),
+  currentPassword: z.string().min(1),
+});
+
+router.put("/auth/change-email", async (req, res) => {
+  if (!req.session.userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+  const parsed = changeEmailSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }); return; }
+
+  const { newEmail, currentPassword } = parsed.data;
+  try {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.session.userId));
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) { res.status(401).json({ error: "كلمة المرور غير صحيحة" }); return; }
+
+    const [existing] = await db.select({ id: usersTable.id }).from(usersTable)
+      .where(eq(usersTable.email, newEmail.toLowerCase()));
+    if (existing && existing.id !== user.id) {
+      res.status(409).json({ error: "هذا البريد الإلكتروني مستخدم بالفعل" }); return;
+    }
+
+    await db.update(usersTable).set({ email: newEmail.toLowerCase() }).where(eq(usersTable.id, user.id));
+    req.session.userEmail = newEmail.toLowerCase();
+    res.json({ ok: true, email: newEmail.toLowerCase() });
+  } catch {
+    res.status(500).json({ error: "Failed to change email" });
+  }
+});
+
 // ── POST /api/auth/logout ─────────────────────────────────────────────────────
 router.post("/auth/logout", (req, res) => {
   req.session.destroy(() => {

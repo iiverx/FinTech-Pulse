@@ -1,0 +1,51 @@
+Please fix and improve my existing project without rebuilding it. Keep the current design, branding, colors, and all existing features. Only fix the following issues:
+
+1. Database & Authentication
+- Rebuild and reconnect the database correctly.
+- Fix user registration and login.
+- Store user information properly.
+- After login, display the logged-in user's real name dynamically (e.g., "مرحباً أحمد") instead of a static name.
+- Ensure each user only sees their own data, wallet, transactions, and financial information.
+- Keep the session persistent until logout.
+
+2. Sidebar Menu
+- Make the sidebar responsive.
+- Add a toggle button (hamburger menu).
+- When the user clicks the menu button, the sidebar should appear.
+- When clicked again, it should hide.
+- The sidebar should not always stay open.
+- Add smooth animations.
+- Make it work perfectly on desktop, tablet, and mobile.
+
+3. Financial Calculator
+- Fix the calculator.
+- Inputs currently do not accept values correctly.
+- Remove all validation errors that appear incorrectly.
+- Ensure calculations work correctly after entering data.
+- Display accurate results instantly.
+
+4. Logout & Forgot Password
+- Keep the Logout feature working.
+- Add a "Forgot Password?" feature in Arabic:
+  "نسيت كلمة المرور؟"
+- Allow users to reset their password securely through email or the implemented authentication provider.
+
+5. Performance Optimization
+- Make the website much faster.
+- Reduce unnecessary re-renders.
+- Optimize database queries.
+- Lazy load components where appropriate.
+- Optimize images and assets.
+- Improve page loading speed.
+- Improve responsiveness and overall performance.
+
+6. General Fixes
+- Fix any console errors.
+- Fix API/database connection issues.
+- Improve error handling.
+- Keep the UI clean and responsive.
+- Do not remove any existing functionality.
+- Do not redesign the website.
+- Ensure all features work together correctly.
+
+After finishing, test all pages to verify that login, database, sidebar, calculator, logout, forgot password, and performance all work correctly without errors.

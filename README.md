@@ -3,7 +3,7 @@
 
 على عكس الحلول التقليدية التي تكتفي بتحليل الإنفاق بعد حدوثه، يركّز نبض على توجيه المستخدم **قبل** اتخاذ القرار المالي، لمساعدته على تجنب المخاطر وتحقيق استقرار مالي أفضل.
 ---
-رابط الموقع : https://fin-tech-pulse.replit.app/  
+رابط الموقع: https://fin-tech-pulse.replit.app/  
 العرض التوضيحي و العرض التقديمي : https://drive.google.com/drive/folders/17Q1pX4BXRPdgzeDe6-OKguiIh1VC4Zgi
 
 ---

@@ -81,6 +81,7 @@ export function useAuth() {
       queryClient.setQueryData(["auth-me"], null);
       queryClient.invalidateQueries({ queryKey: ["savings-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["savings-goal"] });
+      window.location.href = "/";
     },
   });
 
